@@ -1,0 +1,1 @@
+- 2026-11-10 00:00 輪｜R1 畫面風格（平塗、無霧無陰影、blob shadow、綠大衣紅圍巾＋綠光環、?autostart=1）｜已部署 night-20261110-0006｜備註：修正 run_round.sh 腳本錯誤（codex -i 吞掉 prompt、assets 不存在時 git add 失敗、輕量 tag 未推送）

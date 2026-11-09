@@ -30,7 +30,7 @@ ERRS=$(grep -ciE 'Uncaught|SyntaxError|TypeError|ReferenceError' "$LOG/console.t
 echo "syntax_rc=$SYN console_errors=$ERRS" | tee -a "$LOG/check.txt"
 CHG=$(git status --porcelain index.html assets 2>/dev/null)
 if [ "$SYN" = 0 ] && [ "$ERRS" = 0 ] && [ -n "$CHG" ]; then
-  git add -A index.html .pm; [ -d assets ] && git add -A assets; git commit -qm "Night round $TS: $(head -1 "$SPEC" | cut -c1-60)" && git tag "night-$TS" && git push -q --follow-tags origin main && echo "DEPLOYED $(git rev-parse --short HEAD)" | tee -a "$LOG/check.txt"
+  git add -A index.html .pm; [ -d assets ] && git add -A assets; git commit -qm "Night round $TS: $(head -1 "$SPEC" | cut -c1-60)" && git tag "night-$TS" && git push -q origin main "night-$TS" && echo "DEPLOYED $(git rev-parse --short HEAD)" | tee -a "$LOG/check.txt"
 else
   git checkout -- index.html 2>/dev/null; git clean -fdq assets 2>/dev/null; echo "REVERTED (pre=$PRE)" | tee -a "$LOG/check.txt"
 fi
