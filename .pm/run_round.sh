@@ -6,7 +6,7 @@ SPEC="$1"; TS=$(date +%Y%m%d-%H%M); LOG=.pm/logs/$TS; mkdir -p "$LOG"
 git pull -q --rebase || true
 PRE=$(git rev-parse HEAD)
 IMGS=$(ls .pm/ref/*.jpg | head -6 | tr '\n' ',' | sed 's/,$//')
-timeout 50m codex exec -s workspace-write --skip-git-repo-check -C /workspace/polar-outpost -i "$IMGS" "$(cat "$SPEC")
+timeout 50m codex exec -s workspace-write --skip-git-repo-check -C /workspace/polar-outpost -i "$IMGS" -- "$(cat "$SPEC")
 
 規則：附圖是參考遊戲畫面。只改 index.html 與 assets/（素材請自己生成並存成檔案，用相對路徑載入，PNG 或 SVG，單檔 < 300KB）。不要改 .pm/ 以外的說明檔、不要 git commit。完成後用 node 檢查 module script 語法，並在最後用 3–5 行列出修改內容。" > "$LOG/codex.txt" 2>&1
 echo "codex exit $?" >> "$LOG/codex.txt"
@@ -30,7 +30,7 @@ ERRS=$(grep -ciE 'Uncaught|SyntaxError|TypeError|ReferenceError' "$LOG/console.t
 echo "syntax_rc=$SYN console_errors=$ERRS" | tee -a "$LOG/check.txt"
 CHG=$(git status --porcelain index.html assets 2>/dev/null)
 if [ "$SYN" = 0 ] && [ "$ERRS" = 0 ] && [ -n "$CHG" ]; then
-  git add index.html assets .pm 2>/dev/null; git commit -qm "Night round $TS: $(head -1 "$SPEC" | cut -c1-60)" && git tag "night-$TS" && git push -q --follow-tags origin main && echo "DEPLOYED $(git rev-parse --short HEAD)" | tee -a "$LOG/check.txt"
+  git add -A index.html .pm; [ -d assets ] && git add -A assets; git commit -qm "Night round $TS: $(head -1 "$SPEC" | cut -c1-60)" && git tag "night-$TS" && git push -q --follow-tags origin main && echo "DEPLOYED $(git rev-parse --short HEAD)" | tee -a "$LOG/check.txt"
 else
   git checkout -- index.html 2>/dev/null; git clean -fdq assets 2>/dev/null; echo "REVERTED (pre=$PRE)" | tee -a "$LOG/check.txt"
 fi

@@ -146,19 +146,19 @@ const upgrades={
   capacity:{name:'大型背包',icon:'▤',info:'攜帶容量 +5',base:65,step:45,max:6},
   blades:{name:'雙重旋刃',icon:'✳',info:'新增旋轉刀刃，可同時攻擊更多目標',base:175,step:0,max:1}
 };
-const CO={snow:0xe6f7ff,snow2:0xcce9f8,ice:0xb9dff3,road:0xdba07a,roadEdge:0xc58461,
+const CO={snow:0xe8f3ff,snow2:0xdcecff,ice:0xb9dff3,road:0xdba07a,roadEdge:0xc58461,
   wood:0xa46e47,woodLight:0xd7a475,ink:0x234b5f,blue:0x238cc6,blueLight:0x67bddd,
   leaf:0x3f9cd5,leaf2:0x71c6ec,leaf3:0xbdf4ff,bear:0xf4f1e7,
   green:0x35df8d,gold:0xffd876,meat:0xe86869,metal:0xe4f9ff};
 const rand=(a,b)=>a+Math.random()*(b-a);
 const clamp=THREE.MathUtils.clamp;
 const rnd=(a,b)=>Math.floor(rand(a,b+1));
-const mat=(hex,roughness=0.88,other={})=>new THREE.MeshStandardMaterial({color:hex,roughness,metalness:0,flatShading:true,...other});
+const mat=(hex,roughness=0.88,other={})=>new THREE.MeshLambertMaterial({color:hex,flatShading:true,...Object.fromEntries(Object.entries(other).filter(([key])=>key!=='metalness'&&key!=='roughness'))});
 const M={
   snow:mat(CO.snow),road:mat(CO.road),roadEdge:mat(CO.roadEdge),
   pine0:mat(0x287ebf),pine1:mat(0x439cd8),pine2:mat(0x9de6fd),bark:mat(0x9c6747),
   bear:mat(CO.bear),bearShadow:mat(0xc9d2d2),black:mat(0x273a47),
-  coat:mat(0x1ea9cd),coatDark:mat(0x176a8e),skin:mat(0xffd0a8),
+  coat:mat(0x28bf53),coatDark:mat(0x15803c),skin:mat(0xffd0a8),
   wood:mat(CO.wood),woodLight:mat(CO.woodLight),meat:mat(CO.meat),bone:mat(0xffeae1),
   cash:mat(0x30d963),cashDark:mat(0x178b44),metal:mat(CO.metal,.36,{metalness:.45}),
   silver:mat(0xa6cad9,.3,{metalness:.5}),blackPad:mat(0x354c58),
@@ -189,34 +189,35 @@ let targetFrustum=22;
 let bgSnowTime=0;
 function mesh(geometry,material,parent,px=0,py=0,pz=0,sx=1,sy=1,sz=1){
   const o=new THREE.Mesh(geometry,material);o.position.set(px,py,pz);o.scale.set(sx,sy,sz);
-  if(parent)parent.add(o);o.receiveShadow=false;return o;
+  if(parent)parent.add(o);o.castShadow=false;o.receiveShadow=false;return o;
 }
 function box(parent,material,x,y,z,sx,sy,sz){return mesh(geom.box,material,parent,x,y,z,sx,sy,sz)}
 function ball(parent,material,x,y,z,sx,sy,sz,low=false){return mesh(low?geom.ballLow:geom.ball,material,parent,x,y,z,sx,sy,sz)}
 function cylinder(parent,material,x,y,z,r,h,n=8){return mesh(new THREE.CylinderGeometry(r,r,h,n),material,parent,x,y,z)}
-function shadowDisc(parent,x=0,z=0,r=1){const o=mesh(geom.circle,new THREE.MeshBasicMaterial({color:0x5c8ea4,transparent:true,opacity:.15,depthWrite:false,side:THREE.DoubleSide}),parent,x,.015,z,r,r,r);o.rotation.x=-Math.PI/2;return o}
+const blobMaterial=new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide});
+function shadowDisc(parent,x=0,z=0,r=1){const o=mesh(geom.circle,blobMaterial,parent,x,.145,z,r,r,r);o.rotation.x=-Math.PI/2;return o}
 function lineTube(parent,x1,y1,z1,x2,y2,z2,r,material){
   const a=new THREE.Vector3(x1,y1,z1),b=new THREE.Vector3(x2,y2,z2);
   const dir=b.clone().sub(a);const obj=mesh(new THREE.CylinderGeometry(r,r,dir.length(),6),material,parent);
   obj.position.copy(a.add(b).multiplyScalar(.5));obj.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());return obj;
 }
 function makeWorld(){
-  scene=new THREE.Scene();scene.background=new THREE.Color(0xc3e8fb);scene.fog=new THREE.Fog(0xd1edfa,40,110);
+  scene=new THREE.Scene();scene.background=new THREE.Color(0xc3e8fb);scene.fog=null;
   camera=new THREE.OrthographicCamera(-10,10,10,-10,.1,200);camera.position.copy(camOffset).add(camLook);camera.lookAt(camLook);
   renderer=new THREE.WebGLRenderer({canvas:UI.canvas,antialias:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.7));renderer.setSize(innerWidth,innerHeight,false);
-  renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.38;
-  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  scene.add(new THREE.HemisphereLight(0xe9f8ff,0x9cb2b7,2.45));
-  const dl=new THREE.DirectionalLight(0xfff4e2,2.6);dl.position.set(-15,29,20);dl.castShadow=true;
-  dl.shadow.mapSize.set(1536,1536);dl.shadow.camera.left=-30;dl.shadow.camera.right=30;dl.shadow.camera.top=30;dl.shadow.camera.bottom=-30;
-  dl.shadow.camera.near=.1;dl.shadow.camera.far=100;dl.shadow.bias=-.00025;dl.shadow.normalBias=.06;light=dl;scene.add(dl);
+  renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.LinearToneMapping;renderer.toneMappingExposure=.45;
+  renderer.shadowMap.enabled=false;
+  scene.add(new THREE.AmbientLight(0xffffff,.75));
+  scene.add(new THREE.HemisphereLight(0xf5fbff,0xb9d4ef,1.25));
+  const dl=new THREE.DirectionalLight(0xffffff,1.35);dl.position.set(-15,29,20);dl.castShadow=false;
+  light=dl;scene.add(dl);
   createGround();createRoad();createForest();createStalls();createGate();createCabin();createBears();createPlayer();createSnowfall();createWorldLabels();
   resize();window.addEventListener('resize',resize);
 }
 function createGround(){
   const ground=mesh(new THREE.PlaneGeometry(200,105),M.snow,scene,0,-.1,-2);
-  ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;
+  ground.rotation.x=-Math.PI/2;ground.receiveShadow=false;
   const iceMats=[new THREE.MeshBasicMaterial({color:0xb0d6ed,transparent:true,opacity:.55,depthWrite:false,side:THREE.DoubleSide}),new THREE.MeshBasicMaterial({color:0xc0e2f4,transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide}),new THREE.MeshBasicMaterial({color:0xf6ffff,transparent:true,opacity:.65,depthWrite:false,side:THREE.DoubleSide})];
   // 稍微不規則的冰河色塊，重現影片中道路下方的淡藍色雪地。
   for(let i=0;i<43;i++){
@@ -241,7 +242,7 @@ function createGround(){
 }
 function createRoad(){
   roadDecor=new THREE.Group();scene.add(roadDecor);
-  const main=box(roadDecor,M.road,0,.03,0,170,.13,6.45);main.receiveShadow=true;
+  const main=box(roadDecor,M.road,0,.03,0,170,.13,6.45);main.receiveShadow=false;
   box(roadDecor,M.roadEdge,0,.115,-3.33,170,.19,.16);
   box(roadDecor,M.roadEdge,0,.115,3.33,170,.19,.16);
   const dustMat=new THREE.MeshBasicMaterial({color:0xffd5ac,transparent:true,opacity:.65,depthWrite:false});
@@ -302,6 +303,10 @@ function createForest(){
     forest.add(im);return im;
   });
   const trunks=new THREE.InstancedMesh(trunkGeo,M.bark,count);trunks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);trunks.frustumCulled=false;forest.add(trunks);
+  // One instanced draw call for all tree blobs; reuse each tree's lifecycle matrix updates.
+  const blobs=new THREE.InstancedMesh(geom.circle,blobMaterial,count);
+  blobs.instanceMatrix.setUsage(THREE.DynamicDrawUsage);blobs.frustumCulled=false;forest.add(blobs);
+  trunks.userData.blobs=blobs;
   const dummy=new THREE.Object3D();
   for(let i=0;i<count;i++){
     let x,z,tries=0;
@@ -327,6 +332,9 @@ function drawPineInstance(t,meshes,trunks,variants,dummy){
     meshes[j].instanceMatrix.needsUpdate=true;
   }
   trunks.instanceMatrix.needsUpdate=true;
+  dummy.position.set(t.x,.145,t.z);dummy.rotation.set(-Math.PI/2,0,0);
+  dummy.scale.setScalar(scale*1.08);dummy.updateMatrix();
+  trunks.userData.blobs.setMatrixAt(k,dummy.matrix);trunks.userData.blobs.instanceMatrix.needsUpdate=true;
 }
 function hitTree(t,damage){
   if(!t.active)return;
@@ -501,7 +509,7 @@ function syncGate(){
 function createCabin(){
   cabin=new THREE.Group();cabin.position.set(34,0,-5.5);cabin.rotation.y=-.08;scene.add(cabin);
   shadowDisc(cabin,0,0,3.4);
-  const body=box(cabin,mat(0xb8784d),0,1.7,0,6.8,3.4,4.7);body.receiveShadow=true;
+  const body=box(cabin,mat(0xb8784d),0,1.7,0,6.8,3.4,4.7);body.receiveShadow=false;
   const line=mat(0x965b35);
   for(let j=0;j<7;j++)box(cabin,line,0,.34+j*.46,2.385,6.85,.12,.06);
   const roof=mat(0x943f32);
@@ -539,16 +547,23 @@ function createLabelSprite(title,subtitle,color){
 function createPlayer(){
   const root=new THREE.Group();root.position.set(-8,0,-1.4);scene.add(root);
   playerShadow=shadowDisc(root,0,0,.77);
-  const ringGeo=new THREE.RingGeometry(.7,.80,48);
-  const ring=mesh(ringGeo,new THREE.MeshBasicMaterial({color:0x5dffd6,transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}),root,0,.055,0);
+  const ringGeo=new THREE.RingGeometry(.84,.96,48);
+  const ring=mesh(ringGeo,new THREE.MeshBasicMaterial({color:0x32f52a,transparent:true,opacity:.85,toneMapped:false,side:THREE.DoubleSide,depthWrite:false}),root,0,.16,0);
   ring.rotation.x=-Math.PI/2;
+  const ringGlow=mesh(new THREE.RingGeometry(.79,1.07,48),new THREE.MeshBasicMaterial({color:0x45ff34,blending:THREE.AdditiveBlending,transparent:true,opacity:.22,side:THREE.DoubleSide,depthWrite:false,toneMapped:false}),ring);
+  ringGlow.position.z=-.005;
   const body=new THREE.Group();root.add(body);
   box(body,M.coat,0,.98,0,.73,.85,.56);
   box(body,M.coatDark,-.09,1.12,.34,.48,.38,.10);
-  ball(body,M.skin,.07,1.66,0,.31,.32,.30,true);
-  box(body,M.coatDark,.05,1.93,-.04,.68,.20,.72);
-  box(body,M.coat,0,2.03,-.03,.55,.19,.56);
-  box(body,M.white,.11,1.95,.29,.2,.10,.08);
+  // Hood opens toward +X, matching the face and the character's heading.
+  ball(body,M.coat,-.05,1.73,0,.43,.46,.42,true);
+  const hoodRim=mesh(new THREE.TorusGeometry(.31,.075,6,16),M.white,body,.22,1.76,0);
+  hoodRim.rotation.y=Math.PI/2;
+  ball(body,M.skin,.26,1.74,0,.16,.27,.25,true);
+  box(body,M.white,0,.59,0,.79,.13,.62);
+  const scarf=mat(0xff383f);
+  cylinder(body,scarf,0,1.41,0,.38,.17,10);
+  const scarfTail=box(body,scarf,.39,1.15,.15,.11,.48,.19);scarfTail.rotation.x=-.18;
   for(const z of [-.38,.38]){
     box(body,M.coat,.08,1.0,z,.29,.73,.27);
     ball(body,M.skin,.08,.66,z,.15,.15,.14,true);
@@ -771,7 +786,8 @@ function updatePlayer(dt){
     hero.body.rotation.z=Math.sin(hero.walkPhase)*.03;
   }else{hero.body.position.y=THREE.MathUtils.damp(hero.body.position.y,0,8,dt)}
   hero.ring.rotation.z+=dt*.32;
-  hero.ring.material.opacity=.55+Math.sin(now*4)*.18;
+  hero.ring.material.opacity=.65+Math.sin(now*2)*.15;
+  hero.ring.scale.setScalar(1+Math.sin(now*2)*.035);
   hero.weaponPivot.rotation.y=now*(state.upgrades.blades?6.9:5.9);
   hero.blades[0].position.set(1.02,0,0);hero.blades[0].rotation.y=Math.PI*.27;
   hero.blades[1].visible=state.upgrades.blades>0;
@@ -972,6 +988,7 @@ function boot(){
   try{
     makeWorld();bindControls();updateQuest();updateHUD();syncGate();
     hero.gateNotify=-10;
+    if(new URLSearchParams(location.search).get('autostart')==='1')UI.startBtn.click();
     requestAnimationFrame(gameLoop);
   }catch(err){
     console.error('Three.js 遊戲初始化失敗',err);
