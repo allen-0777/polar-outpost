@@ -14,6 +14,15 @@
 @media (max-width:370px){.quest-box{max-width:178px}.left-info{max-width:178px}.wordmark{font-size:13px}.mini-currency span:last-child{display:none}.upgrade-btn small{display:none}.upgrade-btn strong{font-size:10px}.upgrade-glyph{width:25px;height:25px}.dash-btn{width:64px;height:64px}.joystick-zone{width:119px;height:119px}.joystick-base{width:104px;height:104px}.joystick-knob{width:50px;height:50px}}
 @media (max-height:660px){.title-illustration{display:none}.big-title-en{font-size:58px;line-height:.83}.start-card h1{margin:18px 0 8px}.start-desc{margin-bottom:14px}.feature-grid{margin-bottom:16px}.controls-note{margin-top:18px}}
 
+/* R4 inventory and handed touch layout */
+.resource-panel{background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.3);border-radius:15px;padding:7px 10px;min-width:126px;backdrop-filter:blur(10px)}
+.resource-panel .currency,.resource-panel .mini-currency{background:none;border:0;box-shadow:none;backdrop-filter:none;padding:3px 0;gap:9px;border-radius:0;display:flex;justify-content:flex-start;font-size:16px;color:white}
+.resource-panel .mini-currencies{display:flex;flex-direction:column;gap:0}
+.resource-panel b,.resource-panel #coinAmount{font-size:18px;font-weight:900;color:white}
+.resource-panel .currency-label,.resource-panel .mini-currency span:last-child{display:none}
+.resource-icon{width:29px;height:29px;object-fit:contain;flex-shrink:0}
+.joystick-zone{order:2}.bottom-right{order:0;flex-direction:column;align-items:flex-start;gap:12px}.desktop-hint{left:auto;right:155px}
+@media(max-width:680px){.resource-panel{min-width:112px;padding:6px 9px}.resource-icon{width:25px;height:25px}.resource-panel b,.resource-panel #coinAmount{font-size:16px}.bottom-right{gap:12px}.resource-panel .mini-currency.capacity{justify-content:flex-start}.upgrade-btn{min-height:48px}}
 </style>
 </head>
 <body>
@@ -33,13 +42,13 @@
         </div>
       </div>
       <div class="right-info">
-        <div class="currency"><span class="currency-icon coin-icon">$</span><span id="coinAmount">0</span><span class="currency-label">金幣</span></div>
+        <div class="resource-panel"><div class="currency"><img class="resource-icon" src="assets/icon_coin.png" alt="金幣"><span id="coinAmount">0</span><span class="currency-label">金幣</span></div>
         <div class="mini-currencies">
-          <div class="mini-currency"><span class="mini-icon meat-icon">◕</span><b id="meatAmount">0</b><span>肉類</span></div>
-          <div class="mini-currency"><span class="mini-icon wood-icon">▰</span><b id="woodAmount">0</b><span>木材</span></div>
-          <div class="mini-currency capacity"><span class="mini-icon cap-icon">▤</span><b id="bagAmount">0 / 15</b></div>
+          <div class="mini-currency"><img class="resource-icon" src="assets/icon_meat.png" alt="肉類"><b id="meatAmount">0</b><span>肉類</span></div>
+          <div class="mini-currency"><img class="resource-icon" src="assets/icon_wood.png" alt="木材"><b id="woodAmount">0</b><span>木材</span></div>
+          <div class="mini-currency capacity"><img class="resource-icon" src="assets/icon_bag.png" alt="背包容量"><b id="bagAmount">0 / 15</b></div>
         </div>
-        <div class="top-actions">
+        </div><div class="top-actions">
           <button id="audioBtn" class="icon-btn" aria-label="切換音效" title="音效">♪</button>
           <button id="pauseBtn" class="icon-btn" aria-label="暫停遊戲" title="暫停">Ⅱ</button>
         </div>
@@ -71,7 +80,7 @@
         <div><span class="feature-icon">$</span><b>經營擴張</b><small>交貨、賺錢、解鎖</small></div>
       </div>
       <button id="startBtn" class="primary-btn">開始探索 <span>↗</span></button>
-      <div class="controls-note"><span>手機｜拖曳左下角搖桿</span><span class="note-divider"></span><span>電腦｜WASD / 方向鍵</span></div>
+      <div class="controls-note"><span>手機｜拖曳右下角搖桿</span><span class="note-divider"></span><span>電腦｜WASD / 方向鍵</span></div>
       <div id="loadError" class="load-error hidden">無法載入 Three.js，請確認網路連線後重新整理頁面。</div>
     </div>
     <div class="version-text">MADE WITH THREE.JS · PROCEDURAL 3D WORLD</div>
@@ -180,6 +189,9 @@ let scene,camera,renderer,light,clock,hero,forest,gate,cabin,snow,roadDecor,play
 let running=false,paused=false,soundOn=false,audioCtx=null;
 let lastTime=0,now=0,shake=0,attackClock=0,stockClock=0,serviceClock=0,dashClock=0,dashTime=0,saveClock=0,toastTime=0;
 let unlockShown=false,questShown=-1;
+let gatePaid=0,gatePayClock=0,gatePopAge=-1;
+const gateFlights=[],gateStars=[];
+const coinTexture=new THREE.TextureLoader().load("assets/icon_coin.png");coinTexture.colorSpace=THREE.SRGBColorSpace;
 const bears=[],trees=[],drops=[],particles=[],stalls=[],customerMeshes=[],floatLabels=[];
 // Shared textures live for the world lifetime; each transient sprite owns its material.
 const combatTextures={slash:null,puff:null},combatEffects=[];
@@ -299,18 +311,18 @@ function createRoad(){
   }
 }
 function stallOpening(x){return [-17,-5,8,19].some(px=>Math.abs(x-px)<2.35)||Math.abs(x-26)<3.5}
-function drawDashedRect(parent,x,y,z,w,d,color){
+function drawDashedRect(parent,x,y,z,w,d,color,thickness=.045){
   const m=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.86});
   const n=5;
   for(let i=0;i<n;i++){
     const a=-w/2+w*(i+.5)/n;
-    box(parent,m,x+a,y,z-d/2,w/n*.67,.01,.045);
-    box(parent,m,x+a,y,z+d/2,w/n*.67,.01,.045);
+    box(parent,m,x+a,y,z-d/2,w/n*.67,.025,thickness);
+    box(parent,m,x+a,y,z+d/2,w/n*.67,.025,thickness);
   }
   for(let i=0;i<3;i++){
     const a=-d/2+d*(i+.5)/3;
-    box(parent,m,x-w/2,y,z+a,.045,.01,d/3*.66);
-    box(parent,m,x+w/2,y,z+a,.045,.01,d/3*.66);
+    box(parent,m,x-w/2,y,z+a,thickness,.025,d/3*.66);
+    box(parent,m,x+w/2,y,z+a,thickness,.025,d/3*.66);
   }
 }
 function createForest(){
@@ -542,11 +554,16 @@ function createGate(){
   box(gate.userData.bar,beam,0,2.64,0,.36,.29,7.2);
   const pad=mesh(new THREE.CylinderGeometry(1.08,1.15,.1,25),M.yellow,scene,22.2,.06,1.3,1,.5,1);
   pad.material=mat(0xffca65,.55,{emissive:0xe5a72c,emissiveIntensity:.26});gate.userData.pad=pad;
-  const spr=createLabelSprite('解鎖新雪林','$180',0xffd07a);spr.scale.set(3.5,1.35,1);spr.position.set(22.2,2.9,1.3);scene.add(spr);gate.userData.sprite=spr;
+  const spr=createLabelSprite('解鎖新雪林','180',0xffd07a);spr.scale.set(3.5,1.35,1);spr.position.set(22.2,2.9,1.3);scene.add(spr);gate.userData.sprite=spr;
+  const frame=new THREE.Group();scene.add(frame);gate.userData.frame=frame;
+  drawDashedRect(frame,22.2,.15,1.3,2.5,2.5,0xffffff,.14);
+  const icon=new THREE.Sprite(new THREE.SpriteMaterial({map:coinTexture,transparent:true,depthTest:false,toneMapped:false}));
+  icon.scale.set(.7,.7,1);icon.position.set(22.2,4,1.3);scene.add(icon);gate.userData.icon=icon;
   syncGate();
 }
 function syncGate(){
   if(!gate)return;
+  gate.userData.frame.visible=gate.userData.icon.visible=!state.gateOpen;
   gate.userData.bar.visible=!state.gateOpen;
   gate.userData.pad.visible=!state.gateOpen;
   gate.userData.sprite.visible=!state.gateOpen;
@@ -843,14 +860,49 @@ function updateStations(dt){
   }
   const gd=Math.hypot(hero.root.position.x-22.2,hero.root.position.z-1.3);
   if(!state.gateOpen&&gd<3.3){
-    prompt=state.coins>=180?'已達解鎖金額，靠近金色踏板':'新區域解鎖需要 $180';
-    if(gd<1.1&&state.coins>=180){state.coins-=180;state.gateOpen=true;syncGate();
-      spawnParticles(26.5,0,[0xfbe89c,0xa4ffec,0xffffff],55,2.6);
-      showToast('新區域已解鎖！探索東側雪林');sound('unlock');updateQuest();save();
-    }
+    const remaining=180-gatePaid;
+    prompt=state.coins>=Math.min(10,remaining)?`站進白框支付金幣 · 尚需 $${remaining}`:`新區域尚需 $${remaining}`;
   }
+  const inGateFrame=Math.abs(hero.root.position.x-22.2)<=1.25&&Math.abs(hero.root.position.z-1.3)<=1.25;
+  if(!state.gateOpen&&inGateFrame&&gatePaid<180){
+    gatePayClock+=dt;
+    if(gatePayClock>=.06&&state.coins>=Math.min(10,180-gatePaid)){
+      gatePayClock%=.06;const amount=Math.min(10,180-gatePaid);state.coins-=amount;gatePaid+=amount;
+      const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:coinTexture,transparent:true,depthWrite:false,toneMapped:false}));
+      sprite.scale.setScalar(.5);const start=hero.root.position.clone();start.y=1.65;sprite.position.copy(start);scene.add(sprite);
+      gateFlights.push({sprite,start,age:0});
+      const old=gate.userData.sprite;const label=createLabelSprite('解鎖新雪林',String(180-gatePaid),0xffd07a);
+      label.position.copy(old.position);label.scale.copy(old.scale);scene.remove(old);old.material.map.dispose();old.material.dispose();scene.add(label);gate.userData.sprite=label;
+      sound('deposit');updateHUD();
+    }
+  }else gatePayClock=0;
+
   if(!nearStation&&gd>=3.3&&state.meat+state.wood>=capacity())prompt='背包已滿！回到道路旁攤位上架商品';
   UI.worldPrompt.classList.toggle('hidden',!prompt);UI.promptText.textContent=prompt;
+}
+function updateGateEffects(dt){
+  for(let i=gateFlights.length-1;i>=0;i--){
+    const f=gateFlights[i];f.age+=dt;const t=Math.min(1,f.age/.42);
+    f.sprite.position.lerpVectors(f.start,new THREE.Vector3(22.2,.4,1.3),t);f.sprite.position.y+=Math.sin(t*Math.PI)*2;
+    if(t===1){scene.remove(f.sprite);f.sprite.material.dispose();gateFlights.splice(i,1)}
+  }
+  if(!state.gateOpen&&gatePaid===180&&gateFlights.length===0){
+    state.gateOpen=true;syncGate();gatePopAge=0;gate.scale.setScalar(.001);
+    const shape=new THREE.Shape();shape.moveTo(-.13,0);shape.lineTo(.13,0);shape.lineTo(0,1);shape.closePath();
+    const geometry=new THREE.ShapeGeometry(shape);
+    for(let i=0;i<12;i++){
+      const angle=i*Math.PI*2/12;const sprite=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({color:0xffd83e,side:THREE.DoubleSide,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}));
+      sprite.quaternion.copy(camera.quaternion);sprite.rotateZ(-angle);scene.add(sprite);gateStars.push({sprite,angle,age:0});
+    }
+    spawnParticles(26.5,0,[0xfbe89c,0xa4ffec,0xffffff],55,2.6);
+    showToast('新區域已解鎖！探索東側雪林');sound('unlock');updateQuest();save();
+  }
+  if(gatePopAge>=0){gatePopAge+=dt;const t=Math.min(1,gatePopAge/.4),u=t-1;gate.scale.setScalar(1+2.70158*u*u*u+1.70158*u*u);if(t===1)gatePopAge=-1}
+  for(let i=gateStars.length-1;i>=0;i--){
+    const f=gateStars[i];f.age+=dt;const t=Math.min(1,f.age/.65),r=.5+3*t;
+    f.sprite.position.set(26.5+Math.sin(f.angle)*r,1.6+Math.cos(f.angle)*r,0);f.sprite.material.opacity=1-t;f.sprite.scale.setScalar(1-t*.5);
+    if(t===1){scene.remove(f.sprite);f.sprite.material.dispose();gateStars.splice(i,1);if(!gateStars.length)f.sprite.geometry.dispose()}
+  }
 }
 function inputVector(){
   let x=0,y=0;
@@ -870,7 +922,7 @@ function updatePlayer(dt){
   const px=hero.root.position.x,pz=hero.root.position.z;
   let nx=px+hero.vel.x*dt,nz=pz+hero.vel.z*dt;
   nx=clamp(nx,-49,state.gateOpen?55:24.6);nz=clamp(nz,-31,28);
-  if(nx>=24.5&&!state.gateOpen&&now>(hero.gateNotify??-10)+2){showToast('前方雪林尚未開放，到金色踏板付費解鎖');hero.gateNotify=now}
+  if(nx>=24.5&&!state.gateOpen&&now>(hero.gateNotify??-10)+2){showToast('前方雪林尚未開放，到白色虛線框付費解鎖');hero.gateNotify=now}
   hero.root.position.set(nx,0,nz);
   const moving=hero.vel.lengthSq()>.07;
   if(moving){
@@ -1081,7 +1133,7 @@ function gameLoop(t){
   if(running&&!paused){
     now+=dt;
     updatePlayer(dt);updateBears(dt);autoAttack(dt);updateForest(dt);updateDrops(dt);updateParticles(dt);updateCombatEffects(dt);
-    updateStations(dt);updateBackpack(dt);updateSnow(dt);
+    updateStations(dt);updateGateEffects(dt);updateBackpack(dt);updateSnow(dt);
     if(toastTime<now)UI.toast.classList.remove('show');
     saveClock+=dt;if(saveClock>4){saveClock=0;save()}
     updateCamera(dt);updateFloatLabels();
