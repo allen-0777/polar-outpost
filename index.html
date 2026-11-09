@@ -181,6 +181,27 @@ let running=false,paused=false,soundOn=false,audioCtx=null;
 let lastTime=0,now=0,shake=0,attackClock=0,stockClock=0,serviceClock=0,dashClock=0,dashTime=0,saveClock=0,toastTime=0;
 let unlockShown=false,questShown=-1;
 const bears=[],trees=[],drops=[],particles=[],stalls=[],customerMeshes=[],floatLabels=[];
+// Shared textures live for the world lifetime; each transient sprite owns its material.
+const combatTextures={slash:null,puff:null},combatEffects=[];
+const combatLoader=new THREE.TextureLoader();
+for(const name of ['slash','puff'])combatLoader.load(`assets/${name}.png`,texture=>{
+  texture.colorSpace=THREE.SRGBColorSpace;combatTextures[name]=texture;
+},undefined,()=>{combatTextures[name]=null});
+function combatSprite(type,x,y,z,size,velocity=null){
+  if(!combatTextures[type])return;
+  const material=new THREE.SpriteMaterial({map:combatTextures[type],transparent:true,depthWrite:false,toneMapped:false});
+  const sprite=new THREE.Sprite(material);sprite.position.set(x,y,z);sprite.scale.setScalar(size);
+  if(type==='slash')material.rotation=rand(-.25,.25);
+  scene.add(sprite);combatEffects.push({sprite,size,velocity,age:0,duration:type==='slash'?.25:.5});
+}
+function updateCombatEffects(dt){
+  for(let i=combatEffects.length-1;i>=0;i--){
+    const e=combatEffects[i];e.age+=dt;const t=Math.min(1,e.age/e.duration);
+    if(e.velocity)e.sprite.position.addScaledVector(e.velocity,dt);
+    e.sprite.scale.setScalar(e.size*(1+t*.9));e.sprite.material.opacity=1-t;
+    if(t>=1){scene.remove(e.sprite);e.sprite.material.dispose();combatEffects.splice(i,1)}
+  }
+}
 const inputs={x:0,y:0,keys:new Set(),joyId:null,joyStartX:0,joyStartY:0};
 const tmpVec=new THREE.Vector3(),tmpVec2=new THREE.Vector3();
 const camOffset=new THREE.Vector3(20,28,31);
@@ -362,18 +383,39 @@ function createBear(x,z){
     const leg=ball(root,M.bear,xx,.24,zz,.26,.34,.27,true);leg.userData.leg=true;
   }
   ball(root,M.bear,-1.05,.7,0,.22,.2,.19,true);
+  const flashMaterials=[];
+  const clones=new Map();
+  root.traverse(o=>{
+    if(!o.isMesh||o.material===blobMaterial)return;
+    const original=o.material;
+    if(!clones.has(original)){
+      const material=original.clone();clones.set(original,material);
+      flashMaterials.push({material,emissive:material.emissive.clone(),intensity:material.emissiveIntensity});
+    }
+    o.material=clones.get(original);
+  });
   // 血條永遠朝向攝影機。
   const bar=new THREE.Group();bar.position.set(0,2.15,0);root.add(bar);
   const bg=box(bar,M.blackPad,0,0,0,1.48,.18,.085);
   const red=box(bar,M.red,0,.004,.055,1.37,.13,.085);
-  const bear={root,x,z,hp:4,maxHp:4,alive:true,respawn:0,wanderX:rand(-1,1),wanderZ:rand(-1,1),wanderT:rand(1,4),speed:rand(.6,.92),red,bar,phase:rand(0,7),hitPulse:0};
+  const bear={root,x,z,hp:4,maxHp:4,alive:true,respawn:0,wanderX:rand(-1,1),wanderZ:rand(-1,1),wanderT:rand(1,4),speed:rand(.6,.92),red,bar,phase:rand(0,7),hitPulse:0,flashMaterials,flashUntil:0,deathAt:0,pendingLoot:null};
   bears.push(bear);return bear;
 }
 function createBears(){
   [[-11,-8.6],[-4,-10.7],[3,-8],[9,-12],[17,-8.9],[-22,-9.5],[30,-10.8],[-36,-9.7],[42,-9.2]].forEach(([x,z])=>createBear(x,z));
 }
+const newWhite=new THREE.Color(0xffffff);
 function updateBears(dt){
   for(const b of bears){
+    const flashing=now<b.flashUntil;
+    for(const f of b.flashMaterials){f.material.emissive.copy(flashing?newWhite:f.emissive);f.material.emissiveIntensity=flashing?3:f.intensity}
+    if(!b.alive){
+      if(now>=b.deathAt+.1)b.root.visible=false;
+      if(b.pendingLoot&&now>=b.deathAt+.5){
+        for(const d of b.pendingLoot)spawnDrop(d.type,d.x,d.z);
+        b.pendingLoot=null;
+      }
+    }
     if(!b.alive){if(now>b.respawn){b.alive=true;b.hp=b.maxHp;b.red.scale.x=1.37;b.red.position.x=0;b.root.visible=true;b.x=b.root.position.x+rand(-2,2);b.z=rand(-12,-7);b.root.position.set(b.x,0,b.z)}continue}
     b.wanderT-=dt;b.hitPulse=Math.max(0,b.hitPulse-dt);
     if(b.wanderT<=0){b.wanderT=rand(1.5,4);b.wanderX=rand(-1,1);b.wanderZ=rand(-1,1)}
@@ -395,14 +437,18 @@ function updateBears(dt){
 }
 function hitBear(b,damage){
   if(!b.alive)return;
-  b.hp-=damage;b.hitPulse=.32;shake=Math.max(shake,.09);
+  b.hp-=damage;b.hitPulse=.32;b.flashUntil=now+.1;
+  combatSprite('slash',b.x,1.15,b.z,2.1);shake=Math.max(shake,.09);
   b.red.scale.x=Math.max(0,1.37*Math.max(0,b.hp)/b.maxHp);
   b.red.position.x=-(1.37-b.red.scale.x)/2;
   spawnParticles(b.x,b.z,[0xf57770,0xffb9b8,0xf9f8ed],11,.95);
   floatText(b.x,b.z,`-${damage}`,'#ff746d');sound('hit');
-  if(b.hp<=0){b.alive=false;b.root.visible=false;b.respawn=now+rand(9,15);state.kills++;
-    for(let j=0;j<rnd(2,4);j++)spawnDrop('meat',b.x+rand(-.8,.8),b.z+rand(-.65,.65));
-    if(Math.random()>.47)spawnDrop('cash',b.x+rand(-.4,.4),b.z+rand(-.4,.4));
+  if(b.hp<=0){b.alive=false;b.deathAt=now;b.pendingLoot=[];b.respawn=now+rand(9,15);state.kills++;
+    for(let j=0;j<rnd(2,4);j++)b.pendingLoot.push({type:'meat',x:b.x+rand(-.8,.8),z:b.z+rand(-.65,.65)});
+    if(Math.random()>.47)b.pendingLoot.push({type:'cash',x:b.x+rand(-.4,.4),z:b.z+rand(-.4,.4)});
+    for(let j=0,n=rnd(3,4);j<n;j++){const angle=j/n*Math.PI*2;
+      combatSprite('puff',b.x+Math.cos(angle)*.3,.8,b.z+Math.sin(angle)*.3,rand(.8,1.15),new THREE.Vector3(Math.cos(angle)*1.5,rand(1.2,2.1),Math.sin(angle)*1.5));
+    }
     spawnParticles(b.x,b.z,[0xf2ffff,0xffffff,0x92d6fa],16,1.5);sound('collect');
     if(state.kills===1)showToast('取得生肉！帶去道路旁的肉類攤位');
     updateQuest();save();
@@ -582,7 +628,7 @@ function createPlayer(){
   }
   const scytheTrail=mesh(new THREE.TorusGeometry(2.05,.055,5,50,Math.PI*1.36),new THREE.MeshBasicMaterial({color:0xddffff,transparent:true,opacity:.33,depthWrite:false,side:THREE.DoubleSide}),root,0,.93,0);
   scytheTrail.rotation.x=Math.PI/2;scytheTrail.visible=false;
-  hero={root,body,ring,stack,weaponPivot,blades,scytheTrail,heading:0,vel:new THREE.Vector3(),walkPhase:0,lastHurt:-10,stackT:-1};
+  hero={root,body,ring,stack,weaponPivot,blades,scytheTrail,swingTime:0,swingHeading:0,heading:0,vel:new THREE.Vector3(),walkPhase:0,lastHurt:-10,stackT:-1};
   rebuildBackpack();
 }
 function createSickle(){
@@ -788,11 +834,15 @@ function updatePlayer(dt){
   hero.ring.rotation.z+=dt*.32;
   hero.ring.material.opacity=.65+Math.sin(now*2)*.15;
   hero.ring.scale.setScalar(1+Math.sin(now*2)*.035);
-  hero.weaponPivot.rotation.y=now*(state.upgrades.blades?6.9:5.9);
+  hero.swingTime=Math.max(0,hero.swingTime-dt);
+  const swing=hero.swingTime>0?1-hero.swingTime/.26:1;
+  hero.weaponPivot.rotation.y=-hero.swingHeading+(hero.swingTime>0?-1.6+3.4*Math.sin(swing*Math.PI/2):1.8);
+  hero.weaponPivot.rotation.z=hero.swingTime>0?Math.sin(swing*Math.PI)*.3:0;
   hero.blades[0].position.set(1.02,0,0);hero.blades[0].rotation.y=Math.PI*.27;
   hero.blades[1].visible=state.upgrades.blades>0;
   hero.blades[1].position.set(-1.02,0,0);hero.blades[1].rotation.y=-Math.PI*.72;
-  hero.scytheTrail.visible=attackClock>.12;
+  hero.scytheTrail.visible=hero.swingTime>0;
+  hero.scytheTrail.material.opacity=.5*(hero.swingTime/.26);
   hero.scytheTrail.rotation.z+=dt*7;
   dashTime=Math.max(0,dashTime-dt);
   dashClock=Math.max(0,dashClock-dt);
@@ -807,6 +857,15 @@ function autoAttack(dt){
   let attacked=false,count=0;
   const damage=attackPower();
   for(const b of bears){
+    const flashing=now<b.flashUntil;
+    for(const f of b.flashMaterials){f.material.emissive.copy(flashing?newWhite:f.emissive);f.material.emissiveIntensity=flashing?3:f.intensity}
+    if(!b.alive){
+      if(now>=b.deathAt+.1)b.root.visible=false;
+      if(b.pendingLoot&&now>=b.deathAt+.5){
+        for(const d of b.pendingLoot)spawnDrop(d.type,d.x,d.z);
+        b.pendingLoot=null;
+      }
+    }
     if(!b.alive)continue;
     if(Math.hypot(b.x-x,b.z-z)<2.65){hitBear(b,damage);attacked=true;count++;if(count>(state.upgrades.blades?3:1))break}
   }
@@ -818,7 +877,7 @@ function autoAttack(dt){
     }
   }
   attackClock=attacked?.55:(state.upgrades.blades?.31:.38);
-  if(attacked){hero.scytheTrail.visible=true;hero.scytheTrail.material.opacity=.5;hero.scytheTrail.rotation.z=rand(0,5)}
+  if(attacked){hero.swingTime=.26;hero.swingHeading=hero.heading;hero.scytheTrail.visible=true;hero.scytheTrail.material.opacity=.5;hero.scytheTrail.rotation.z=rand(0,5)}
 }
 function updateForest(dt){
   const {pineMeshes,trunks,variants,dummy}=forest.userData;
@@ -972,7 +1031,7 @@ function gameLoop(t){
   const dt=Math.min((t-lastTime)/1000,.055);lastTime=t;
   if(running&&!paused){
     now+=dt;
-    updatePlayer(dt);updateBears(dt);autoAttack(dt);updateForest(dt);updateDrops(dt);updateParticles(dt);
+    updatePlayer(dt);updateBears(dt);autoAttack(dt);updateForest(dt);updateDrops(dt);updateParticles(dt);updateCombatEffects(dt);
     updateStations(dt);updateFloatLabels();updateSnow(dt);
     if(toastTime<now)UI.toast.classList.remove('show');
     saveClock+=dt;if(saveClock>4){saveClock=0;save()}
