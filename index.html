@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#102f46">
+  <meta name="description" content="以 Three.js 打造的可遊玩 3D 雪地狩獵、採集與商店經營遊戲。">
+  <title>冰原獵人 | Polar Outpost</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700;800&display=swap');
+:root { --bg:#0c2940; --ink:#15354a; --sky:#dff5ff; --mint:#7ef4cb; --mint-deep:#18bd85; --gold:#ffd77c; --white:#fff; --ui:rgba(255,255,255,.92); }
+*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'PingFang TC','Microsoft JhengHei',sans-serif;background:#b0d9ef;color:#fff;overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none}button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}button:focus-visible{outline:3px solid #d9fff2;outline-offset:3px}.hidden{display:none!important}#game{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none}.vignette,.grain{pointer-events:none;position:fixed;inset:0;z-index:1}.vignette{background:radial-gradient(ellipse at 50% 38%,transparent 35%,rgba(12,54,86,.10) 88%)}.grain{opacity:.07;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E")}.hud{position:fixed;inset:0;z-index:3;pointer-events:none}.hud button{pointer-events:auto}.hud-top{position:absolute;top:max(20px,env(safe-area-inset-top));left:max(22px,env(safe-area-inset-left));right:max(22px,env(safe-area-inset-right));display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.left-info{min-width:220px;max-width:335px;flex:1}.wordmark{display:flex;align-items:center;gap:6px;color:#fff;font-family:'Barlow Condensed','DM Sans',sans-serif;letter-spacing:1px;font-size:17px;font-weight:900;text-shadow:0 2px 10px #31617b;white-space:nowrap}.wordmark .mark{display:grid;place-items:center;width:27px;height:27px;border-radius:9px;background:#1c6681;color:#baffec;font-size:25px}.wordmark strong{color:#afffe7}.wordmark .edition{font:700 9px 'DM Sans',sans-serif;color:#fff;background:rgba(31,92,111,.47);padding:3px 5px;border-radius:4px;letter-spacing:.5px}.quest-box{margin-top:12px;padding:15px 17px 14px;border:1px solid rgba(255,255,255,.58);border-radius:17px;background:rgba(18,58,80,.83);box-shadow:0 8px 32px rgba(25,57,74,.18);backdrop-filter:blur(14px)}.quest-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.quest-tag{font-size:10px;letter-spacing:2px;font-weight:800;color:#a3edee}.level-badge{color:#173f52;background:#a9f7cf;font-size:10px;font-weight:800;padding:4px 7px;border-radius:6px}.quest-title{font-size:18px;font-weight:800;letter-spacing:.3px;margin:7px 0 12px}.quest-progress{height:6px;background:rgba(255,255,255,.21);border-radius:6px;overflow:hidden}.quest-progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#4de4b7,#d6ffac);border-radius:6px;transition:width .28s ease}.quest-hint{font-size:11px;line-height:1.6;color:#ccf0f8;margin-top:9px}.right-info{display:flex;flex-direction:column;align-items:flex-end;gap:7px}.currency{display:flex;align-items:center;gap:8px;background:rgba(16,58,73,.83);border:1px solid rgba(255,255,255,.43);padding:7px 13px 7px 7px;border-radius:999px;box-shadow:0 5px 18px rgba(34,73,100,.15);font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;backdrop-filter:blur(12px);white-space:nowrap}.currency-icon{width:29px;height:29px;display:grid;place-items:center;border-radius:50%;font-size:18px;font-weight:900}.coin-icon{color:#725020;background:linear-gradient(140deg,#ffe6a6,#f1b84c);border:2px solid #fff0bb;box-shadow:inset 0 -3px rgba(201,132,48,.25)}.currency-label{font-size:9px;color:#b9d7df;letter-spacing:1px}.mini-currencies{display:flex;gap:5px}.mini-currency{display:flex;align-items:center;gap:6px;background:rgba(17,57,76,.83);border:1px solid rgba(255,255,255,.26);padding:5px 8px;border-radius:9px;font-size:10px;backdrop-filter:blur(10px)}.mini-currency b{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}.mini-currency span:last-child{color:#cdeaf4}.mini-icon{font-size:15px;font-weight:900}.meat-icon{color:#ff9f9b}.wood-icon{color:#ffc286}.cap-icon{color:#a7fcdf}.mini-currency.capacity{padding-right:9px}.top-actions{display:flex;gap:6px}.icon-btn{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:rgba(16,58,73,.78);color:white;border:1px solid rgba(255,255,255,.38);font-size:16px;backdrop-filter:blur(12px);transition:.18s}.icon-btn:hover{background:#227d8b}.location{position:absolute;top:calc(max(20px,env(safe-area-inset-top)) + 177px);left:max(22px,env(safe-area-inset-left));display:flex;align-items:center;gap:8px;color:#1c5369;background:rgba(255,255,255,.73);border:1px solid #fff;border-radius:999px;padding:7px 11px;font-size:10px;font-weight:800;letter-spacing:.4px;box-shadow:0 5px 24px rgba(24,95,125,.08)}.location-dot{width:7px;height:7px;background:#21c994;border-radius:50%;box-shadow:0 0 0 3px rgba(33,201,148,.20)}.bottom-hud{position:absolute;left:max(28px,env(safe-area-inset-left));right:max(26px,env(safe-area-inset-right));bottom:max(28px,env(safe-area-inset-bottom));display:flex;justify-content:space-between;align-items:flex-end}.joystick-zone{width:144px;height:144px;display:flex;align-items:center;justify-content:center;pointer-events:auto;position:relative;touch-action:none}.joystick-base{position:relative;width:120px;height:120px;border:2px solid rgba(255,255,255,.75);background:rgba(38,97,120,.18);border-radius:50%;box-shadow:inset 0 0 0 14px rgba(255,255,255,.10),0 8px 26px rgba(27,65,87,.12);backdrop-filter:blur(7px);display:grid;place-items:center}.joystick-base:before,.joystick-base:after{content:'';position:absolute;background:rgba(255,255,255,.33)}.joystick-base:before{height:1px;left:14px;right:14px}.joystick-base:after{width:1px;top:14px;bottom:14px}.joystick-knob{width:58px;height:58px;border-radius:50%;border:3px solid rgba(255,255,255,.95);background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.7),rgba(190,240,255,.65) 46%,rgba(103,166,188,.74));box-shadow:0 7px 19px rgba(27,74,96,.28);position:relative;z-index:1;transition:transform .06s}.mobile-label{position:absolute;left:0;bottom:-9px;text-align:center;width:100%;font-size:9px;color:#2c6481;font-weight:800;letter-spacing:2px}.desktop-hint{display:flex;flex-direction:column;align-items:center;gap:4px;position:absolute;left:150px;bottom:20px;font-size:10px;color:#38708a;font-weight:700;letter-spacing:1px}.desktop-hint>div{display:flex;gap:4px}.keycap{display:inline-grid;place-items:center;width:23px;height:23px;border-radius:5px;border:1px solid rgba(255,255,255,.9);background:rgba(255,255,255,.55);box-shadow:0 2px 0 rgba(80,131,158,.3);color:#397086;font-size:10px;font-weight:800}.bottom-right{display:flex;align-items:flex-end;gap:17px}.upgrade-btn{display:flex;align-items:center;gap:11px;position:relative;background:rgba(17,58,74,.88);border:1px solid rgba(255,255,255,.55);color:#fff;border-radius:18px;padding:13px 16px;box-shadow:0 12px 28px rgba(32,69,92,.18);backdrop-filter:blur(14px);text-align:left;transition:transform .15s}.upgrade-btn:hover,.dash-btn:hover{transform:translateY(-3px)}.upgrade-glyph{width:35px;height:35px;display:grid;place-items:center;border-radius:12px;color:#175f4a;background:#9bf7d3;font-size:23px;font-weight:900}.upgrade-btn strong{display:block;font-size:13px;white-space:nowrap}.upgrade-btn small{display:block;color:#93c3cb;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;margin-top:4px}.notify-dot{width:10px;height:10px;background:#ffbd71;border:2px solid #fff;border-radius:50%;position:absolute;top:6px;right:7px;display:none}.dash-btn{width:86px;height:86px;border-radius:50%;background:linear-gradient(145deg,#6ff0cf,#08b68b);color:#0b5a49;border:5px solid rgba(255,255,255,.85);box-shadow:0 10px 28px rgba(4,128,103,.25),inset 0 0 0 2px rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;position:relative;overflow:hidden;transition:transform .15s}.dash-btn>span:first-child{font-size:30px;line-height:1;transform:rotate(-35deg)}.dash-btn small{font-size:11px;font-weight:900;margin-top:3px}.dash-cooldown{position:absolute;inset:0;background:rgba(19,57,72,.58);transform:translateY(100%);pointer-events:none}.dash-btn.on-cooldown{filter:saturate(.55)}.toast{position:absolute;left:50%;bottom:max(197px,calc(env(safe-area-inset-bottom) + 171px));transform:translateX(-50%) translateY(12px);background:rgba(15,56,70,.89);color:#effffc;font-size:12px;font-weight:700;padding:12px 17px;border:1px solid rgba(255,255,255,.4);border-radius:999px;backdrop-filter:blur(12px);box-shadow:0 9px 35px rgba(13,66,83,.17);opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.world-prompt{position:absolute;left:50%;bottom:190px;transform:translateX(-50%);display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;background:rgba(255,255,255,.93);border:1px solid #fff;color:#26546a;font-size:12px;font-weight:800;box-shadow:0 8px 28px rgba(41,90,111,.14);white-space:nowrap}.world-prompt span:first-child{color:#00bd87;font-weight:900;font-size:16px}.overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(7,34,51,.73);backdrop-filter:blur(14px)}.overlay#startScreen{background:radial-gradient(ellipse at 50% 16%,rgba(74,147,167,.5),rgba(5,27,43,.83) 70%);z-index:11}.start-card{text-align:center;width:min(510px,100%);position:relative;max-height:calc(100dvh - 48px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(160,218,229,.25) transparent;padding:16px 13px}.eyebrow{display:flex;gap:10px;justify-content:center;align-items:center;color:#9fd8df;letter-spacing:2.5px;font-size:9px;font-weight:900}.eyebrow-line{width:24px;height:1px;background:#69b7c8;opacity:.6}.title-illustration{width:190px;height:124px;margin:18px auto -5px;position:relative;overflow:hidden}.sun{position:absolute;top:8px;left:79px;width:52px;height:52px;background:#c0fff0;border-radius:50%;box-shadow:0 0 70px #83eccc}.mountain{position:absolute;width:0;height:0;border-left:59px solid transparent;border-right:59px solid transparent;border-bottom:90px solid #2f8c9b;bottom:-3px}.m1{left:-5px;border-bottom-color:#317f92}.m2{left:58px;border-left-width:66px;border-right-width:66px;border-bottom-width:111px;border-bottom-color:#64bfd0}.m3{left:115px;border-bottom-color:#267b8c}.tree-symbol{position:absolute;bottom:8px;z-index:2;color:#b6fff3;text-shadow:0 5px #276b80;font-size:64px}.t1{left:15px}.t2{left:129px;font-size:55px}.t3{left:90px;bottom:-4px;color:#72d8c3;font-size:43px}.big-title-en{font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-weight:900;line-height:.77;letter-spacing:5px;font-size:clamp(64px,17vw,88px);color:#fff;text-shadow:0 10px 0 rgba(1,41,57,.26)}.big-title-en span{color:#a7ffe1}.start-card h1{font-size:23px;letter-spacing:12px;font-weight:900;margin:22px 0 14px;color:#fff;text-indent:12px}.start-desc{font-size:12px;line-height:2;color:#bed9e4;margin:0 auto 22px;letter-spacing:.35px}.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:0 0 22px}.feature-grid>div{padding:13px 7px 12px;display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,.08);border:1px solid rgba(211,255,255,.20);border-radius:13px}.feature-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(158,248,221,.15);color:#abffe7;font-size:24px;margin-bottom:9px}.feature-grid b{font-size:12px;letter-spacing:.8px}.feature-grid small{font-size:9px;color:#bad7df;margin-top:5px;white-space:nowrap}.primary-btn{width:100%;padding:17px 23px;display:flex;align-items:center;justify-content:center;gap:18px;border:1px solid #b6ffec;border-radius:12px;background:linear-gradient(100deg,#a4f9d6,#64eac0);color:#145b4a;font-weight:900;font-size:16px;letter-spacing:2px;box-shadow:0 7px 0 #269a80,0 16px 40px rgba(31,203,160,.17);transition:transform .16s,box-shadow .16s}.primary-btn:hover{transform:translateY(-2px);box-shadow:0 9px 0 #269a80,0 18px 40px rgba(31,203,160,.17)}.primary-btn:active{transform:translateY(5px);box-shadow:0 2px 0 #269a80}.primary-btn span{font-size:23px}.controls-note{display:flex;align-items:center;justify-content:center;gap:11px;margin-top:25px;color:#9cc3d0;font-size:10px}.note-divider{height:10px;width:1px;background:#609cb1}.version-text{position:absolute;bottom:16px;left:0;right:0;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:2.3px;color:#77a7b9}.load-error{background:#7f2831;color:#fff;padding:12px;border-radius:8px;margin-top:15px;font-size:12px}.dialog-card{width:min(460px,100%);padding:34px;max-height:min(690px,88dvh);overflow-y:auto;border-radius:22px;border:1px solid rgba(255,255,255,.3);background:linear-gradient(150deg,#174357,#102f42);box-shadow:0 24px 90px rgba(0,20,37,.4);position:relative}.dialog-mini{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:11px;letter-spacing:2px;color:#95e8cd}.dialog-card h2{font-size:28px;margin:10px 0 8px;letter-spacing:1px}.dialog-card p{font-size:13px;color:#bad6df;line-height:1.9}.pause-card .primary-btn{margin-top:27px}.secondary-btn{display:block;width:100%;padding:14px;margin-top:20px;border-radius:10px;color:#b8d9e2;background:transparent;border:1px solid #528294;font-weight:700}.secondary-btn:hover{background:rgba(255,255,255,.08)}.dialog-close{position:absolute;right:22px;top:20px;border:0;background:rgba(255,255,255,.12);color:white;border-radius:50%;width:34px;height:34px;font-size:23px;display:grid;place-items:center}.upgrade-balance{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.075);border-radius:10px;padding:12px 15px;font-size:12px;color:#c0e2e7;margin:16px 0}.upgrade-balance span{color:#ffd27e;font-size:16px;font-weight:900}.upgrade-list{display:grid;gap:10px}.upgrade-row{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.17);border-radius:13px;background:rgba(255,255,255,.055)}.upgrade-icon{width:41px;height:41px;border-radius:11px;display:grid;place-items:center;background:rgba(128,245,209,.16);color:#9af6d6;font-size:26px;flex-shrink:0}.upgrade-desc{flex:1;min-width:0}.upgrade-desc strong{display:block;font-size:13px}.upgrade-desc small{display:block;font-size:10px;color:#9ebecb;line-height:1.6;margin-top:3px}.upgrade-buy{flex-shrink:0;min-width:76px;background:#8af0ca;color:#115640;border:0;border-radius:9px;padding:11px 8px;font-size:12px;font-weight:900}.upgrade-buy:disabled{background:#557580;color:#c0d0d5;cursor:not-allowed}.upgrade-buy.maxed{background:#236752;color:#aaffd6}.dialog-footer{border-top:1px solid rgba(255,255,255,.11);margin-top:18px;padding-top:13px;color:#95beca;font-size:10px;line-height:1.7}
+@media (max-width:680px){.hud-top{left:13px;right:13px;top:max(15px,env(safe-area-inset-top));gap:6px}.wordmark{font-size:15px}.wordmark .mark{width:23px;height:23px;font-size:20px}.wordmark .edition{display:none}.left-info{min-width:0;max-width:205px}.quest-box{margin-top:8px;padding:10px 12px;border-radius:13px}.quest-title{font-size:13px;margin:6px 0 9px}.quest-hint{font-size:9px;margin-top:7px;line-height:1.5}.quest-tag{font-size:9px}.level-badge{font-size:9px}.right-info{gap:5px}.currency{font-size:16px;padding:4px 9px 4px 4px;gap:5px}.currency-icon{width:24px;height:24px;font-size:14px}.currency-label{display:none}.mini-currencies{display:grid;grid-template-columns:1fr 1fr;gap:4px}.mini-currency{padding:4px 5px;gap:4px;font-size:9px;border-radius:7px}.mini-currency b{font-size:11px}.mini-currency.capacity{grid-column:span 2;justify-content:center}.mini-icon{font-size:12px}.top-actions{gap:4px}.icon-btn{width:29px;height:29px;font-size:14px;border-radius:8px}.location{left:13px;top:calc(max(15px,env(safe-area-inset-top)) + 163px);font-size:9px}.bottom-hud{left:8px;right:10px;bottom:max(22px,env(safe-area-inset-bottom))}.joystick-zone{width:138px;height:138px}.joystick-base{width:113px;height:113px}.desktop-hint{display:none}.bottom-right{gap:11px}.upgrade-btn{padding:10px;border-radius:13px;gap:7px}.upgrade-glyph{width:29px;height:29px;font-size:18px;border-radius:9px}.upgrade-btn strong{font-size:10px}.upgrade-btn small{font-size:8px}.dash-btn{width:72px;height:72px;border-width:4px}.dash-btn>span:first-child{font-size:25px}.dash-btn small{font-size:10px}.toast{bottom:max(164px,calc(env(safe-area-inset-bottom) + 146px));font-size:11px}.world-prompt{bottom:max(157px,calc(env(safe-area-inset-bottom) + 143px));font-size:10px}.start-card{padding:0 5px}.title-illustration{margin-top:4px;transform:scale(.85);transform-origin:bottom}.big-title-en{font-size:68px}.start-card h1{font-size:20px;margin:20px 0 12px}.start-desc{font-size:11px}.feature-grid>div{padding:10px 3px}.feature-grid b{font-size:10px}.feature-grid small{font-size:8px}.feature-icon{width:28px;height:28px;font-size:21px}.primary-btn{padding:14px;font-size:13px}.controls-note{font-size:9px;gap:7px}.dialog-card{padding:28px 19px}.version-text{bottom:9px;font-size:9px}}
+@media (max-width:370px){.quest-box{max-width:178px}.left-info{max-width:178px}.wordmark{font-size:13px}.mini-currency span:last-child{display:none}.upgrade-btn small{display:none}.upgrade-btn strong{font-size:10px}.upgrade-glyph{width:25px;height:25px}.dash-btn{width:64px;height:64px}.joystick-zone{width:119px;height:119px}.joystick-base{width:104px;height:104px}.joystick-knob{width:50px;height:50px}}
+@media (max-height:660px){.title-illustration{display:none}.big-title-en{font-size:58px;line-height:.83}.start-card h1{margin:18px 0 8px}.start-desc{margin-bottom:14px}.feature-grid{margin-bottom:16px}.controls-note{margin-top:18px}}
+
+</style>
+</head>
+<body>
+  <canvas id="game" aria-label="3D 遊戲畫面"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <div id="hud" class="hud hidden">
+    <div class="hud-top">
+      <div class="left-info">
+        <div class="wordmark"><span class="mark">✳</span><span>POLAR <strong>OUTPOST</strong></span><span class="edition">WEB · 01</span></div>
+        <div class="quest-box">
+          <div class="quest-heading"><span class="quest-tag">目前任務</span><span id="levelBadge" class="level-badge">LV.01</span></div>
+          <div id="questTitle" class="quest-title">前往森林狩獵</div>
+          <div class="quest-progress"><div id="questBar" class="quest-progress-fill"></div></div>
+          <div id="questHint" class="quest-hint">移動到北側森林，靠近目標就會自動攻擊</div>
+        </div>
+      </div>
+      <div class="right-info">
+        <div class="currency"><span class="currency-icon coin-icon">$</span><span id="coinAmount">0</span><span class="currency-label">金幣</span></div>
+        <div class="mini-currencies">
+          <div class="mini-currency"><span class="mini-icon meat-icon">◕</span><b id="meatAmount">0</b><span>肉類</span></div>
+          <div class="mini-currency"><span class="mini-icon wood-icon">▰</span><b id="woodAmount">0</b><span>木材</span></div>
+          <div class="mini-currency capacity"><span class="mini-icon cap-icon">▤</span><b id="bagAmount">0 / 15</b></div>
+        </div>
+        <div class="top-actions">
+          <button id="audioBtn" class="icon-btn" aria-label="切換音效" title="音效">♪</button>
+          <button id="pauseBtn" class="icon-btn" aria-label="暫停遊戲" title="暫停">Ⅱ</button>
+        </div>
+      </div>
+    </div>
+    <div class="location"><span class="location-dot"></span><span id="regionText">霜雪前哨 · 初始森林</span></div>
+    <div id="toast" class="toast" aria-live="polite"></div>
+    <div class="bottom-hud">
+      <div class="joystick-zone" id="joystickZone"><div id="joystickBase" class="joystick-base"><div id="joystickKnob" class="joystick-knob"></div></div><span class="mobile-label">拖曳移動</span></div>
+      <div class="desktop-hint"><span class="keycap">W</span><div><span class="keycap">A</span><span class="keycap">S</span><span class="keycap">D</span></div><span>移動</span></div>
+      <div class="bottom-right">
+        <button id="upgradeBtn" class="upgrade-btn"><span class="upgrade-glyph">↗</span><span><strong>能力升級</strong><small>UPGRADES · U</small></span><span id="upgradeDot" class="notify-dot"></span></button>
+        <button id="dashBtn" class="dash-btn"><span id="dashIcon">➤</span><small id="dashLabel">衝刺</small><span id="dashCooldown" class="dash-cooldown"></span></button>
+      </div>
+    </div>
+    <div id="worldPrompt" class="world-prompt hidden"><span id="promptIcon">ⓘ</span><span id="promptText"></span></div>
+  </div>
+
+  <div id="startScreen" class="overlay active">
+    <div class="start-card">
+      <div class="eyebrow"><span class="eyebrow-line"></span> INTERACTIVE 3D ADVENTURE <span class="eyebrow-line"></span></div>
+      <div class="title-illustration" aria-hidden="true"><div class="mountain m1"></div><div class="mountain m2"></div><div class="mountain m3"></div><div class="sun"></div><div class="tree-symbol t1">♠</div><div class="tree-symbol t2">♠</div><div class="tree-symbol t3">♠</div></div>
+      <div class="big-title-en">POLAR<br><span>OUTPOST</span></div>
+      <h1>冰原獵人</h1>
+      <p class="start-desc">獵取資源、經營前哨、擴張你的雪地領地。<br>一個可以立即遊玩的 Three.js 小遊戲。</p>
+      <div class="feature-grid">
+        <div><span class="feature-icon">⌖</span><b>自動戰鬥</b><small>靠近目標揮動鐮刀</small></div>
+        <div><span class="feature-icon">▤</span><b>資源收集</b><small>獵肉、伐木、堆疊</small></div>
+        <div><span class="feature-icon">$</span><b>經營擴張</b><small>交貨、賺錢、解鎖</small></div>
+      </div>
+      <button id="startBtn" class="primary-btn">開始探索 <span>↗</span></button>
+      <div class="controls-note"><span>手機｜拖曳左下角搖桿</span><span class="note-divider"></span><span>電腦｜WASD / 方向鍵</span></div>
+      <div id="loadError" class="load-error hidden">無法載入 Three.js，請確認網路連線後重新整理頁面。</div>
+    </div>
+    <div class="version-text">MADE WITH THREE.JS · PROCEDURAL 3D WORLD</div>
+  </div>
+
+  <div id="pauseScreen" class="overlay hidden">
+    <div class="dialog-card pause-card">
+      <div class="dialog-mini">PAUSED</div><h2>暫停探索</h2>
+      <p>雪地前哨已暫停。遊戲進度會儲存在此瀏覽器。</p>
+      <button id="resumeBtn" class="primary-btn">繼續遊戲 <span>▶</span></button>
+      <button id="resetBtn" class="secondary-btn">重新開始（清除進度）</button>
+    </div>
+  </div>
+
+  <div id="upgradeScreen" class="overlay hidden">
+    <div class="dialog-card upgrade-dialog">
+      <button id="closeUpgrades" class="dialog-close" aria-label="關閉">×</button>
+      <div class="dialog-mini">WORKSHOP · CHARACTER GROWTH</div>
+      <h2>前哨補給站</h2><p class="dialog-subtitle">使用賺取的金幣強化狩獵效率。</p>
+      <div class="upgrade-balance">目前持有 <span>$ <b id="upgradeBalance">0</b></span></div>
+      <div id="upgradeList" class="upgrade-list"></div>
+      <div class="dialog-footer">靠近北極熊或松樹將自動攻擊／伐木。靠近攤位即可上架商品。</div>
+    </div>
+  </div>
+  <script type="module">
+// 依序嘗試兩個 CDN；無法連線時顯示錯誤，而非讓開始按鈕沒有反應。
+let THREE;
+try {
+  THREE = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js');
+} catch (firstError) {
+  try {
+    THREE = await import('https://unpkg.com/three@0.170.0/build/three.module.js');
+  } catch (secondError) {
+    const warning = document.getElementById('loadError');
+    warning.classList.remove('hidden');
+    warning.textContent = 'Three.js 載入失敗。請確認有網路連線，或將遊戲部署到 HTTPS 靜態網站後再試。';
+    document.getElementById('startBtn').disabled = true;
+    throw new Error('無法從 CDN 載入 Three.js', { cause: secondError });
+  }
+}
+
+// 冰原獵人：所有模型、道具與地形都由 Three.js 即時建立，不需額外圖檔。
+const $ = (id) => document.getElementById(id);
+const UI = {
+  canvas:$('game'),hud:$('hud'),start:$('startScreen'),startBtn:$('startBtn'),
+  pause:$('pauseScreen'),pauseBtn:$('pauseBtn'),resumeBtn:$('resumeBtn'),resetBtn:$('resetBtn'),
+  upgrade:$('upgradeScreen'),upgradeBtn:$('upgradeBtn'),upgradeList:$('upgradeList'),
+  closeUpgrades:$('closeUpgrades'),upgradeBalance:$('upgradeBalance'),upgradeDot:$('upgradeDot'),
+  audioBtn:$('audioBtn'),toast:$('toast'),questTitle:$('questTitle'),questBar:$('questBar'),
+  questHint:$('questHint'),levelBadge:$('levelBadge'),coin:$('coinAmount'),
+  meat:$('meatAmount'),wood:$('woodAmount'),bag:$('bagAmount'),region:$('regionText'),
+  joystickZone:$('joystickZone'),joystickBase:$('joystickBase'),joystickKnob:$('joystickKnob'),
+  dashBtn:$('dashBtn'),dashLabel:$('dashLabel'),dashCooldown:$('dashCooldown'),
+  worldPrompt:$('worldPrompt'),promptText:$('promptText'),promptIcon:$('promptIcon')
+};
+const KEY='polar-outpost-threejs-v1';
+const initial=()=>({coins:0,wood:0,meat:0,kills:0,cut:0,sales:0,totalEarned:0,questIndex:0,gateOpen:false,upgrades:{speed:0,power:0,capacity:0,blades:0}});
+let state=loadSave();
+function loadSave(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&typeof s==='object')return {...initial(),...s,upgrades:{...initial().upgrades,...(s.upgrades||{})}}}catch{}return initial()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{}}
+const quests=[
+  {title:'狩獵 2 隻北極熊',hint:'向道路北側森林移動，靠近北極熊會自動揮動鐮刀',get:()=>state.kills,target:2},
+  {title:'砍倒 3 棵雪松',hint:'接近藍色松樹，武器會自動砍伐並掉落木材',get:()=>state.cut,target:3},
+  {title:'向攤位售出 8 件商品',hint:'靠近道路南側攤位上架肉或木材，等待客人付款',get:()=>state.sales,target:8},
+  {title:'累積賺取 $150',hint:'保持攤位有貨；顧客會持續排隊購買',get:()=>state.totalEarned,target:150},
+  {title:'解鎖東側雪林',hint:'沿著橘色道路往右走，花費 $180 打開紅色木門',get:()=>state.gateOpen?1:0,target:1},
+  {title:'自由發展你的雪地前哨',hint:'持續狩獵、上架、賺錢與升級，探索更大的森林',get:()=>1,target:1}
+];
+const upgrades={
+  speed:{name:'疾行靴',icon:'»',info:'移動速度 +15%',base:65,step:48,max:6},
+  power:{name:'鋒利鐮刀',icon:'⚔',info:'攻擊傷害 +1',base:75,step:58,max:5},
+  capacity:{name:'大型背包',icon:'▤',info:'攜帶容量 +5',base:65,step:45,max:6},
+  blades:{name:'雙重旋刃',icon:'✳',info:'新增旋轉刀刃，可同時攻擊更多目標',base:175,step:0,max:1}
+};
+const CO={snow:0xe6f7ff,snow2:0xcce9f8,ice:0xb9dff3,road:0xdba07a,roadEdge:0xc58461,
+  wood:0xa46e47,woodLight:0xd7a475,ink:0x234b5f,blue:0x238cc6,blueLight:0x67bddd,
+  leaf:0x3f9cd5,leaf2:0x71c6ec,leaf3:0xbdf4ff,bear:0xf4f1e7,
+  green:0x35df8d,gold:0xffd876,meat:0xe86869,metal:0xe4f9ff};
+const rand=(a,b)=>a+Math.random()*(b-a);
+const clamp=THREE.MathUtils.clamp;
+const rnd=(a,b)=>Math.floor(rand(a,b+1));
+const mat=(hex,roughness=0.88,other={})=>new THREE.MeshStandardMaterial({color:hex,roughness,metalness:0,flatShading:true,...other});
+const M={
+  snow:mat(CO.snow),road:mat(CO.road),roadEdge:mat(CO.roadEdge),
+  pine0:mat(0x287ebf),pine1:mat(0x439cd8),pine2:mat(0x9de6fd),bark:mat(0x9c6747),
+  bear:mat(CO.bear),bearShadow:mat(0xc9d2d2),black:mat(0x273a47),
+  coat:mat(0x1ea9cd),coatDark:mat(0x176a8e),skin:mat(0xffd0a8),
+  wood:mat(CO.wood),woodLight:mat(CO.woodLight),meat:mat(CO.meat),bone:mat(0xffeae1),
+  cash:mat(0x30d963),cashDark:mat(0x178b44),metal:mat(CO.metal,.36,{metalness:.45}),
+  silver:mat(0xa6cad9,.3,{metalness:.5}),blackPad:mat(0x354c58),
+  green:mat(CO.green,.55,{emissive:0x0d7542,emissiveIntensity:.1}),red:mat(0xd25142),
+  white:mat(0xffffff),yellow:mat(0xffcd63),dark:mat(CO.ink)
+};
+const geom={
+  box:new THREE.BoxGeometry(1,1,1),
+  ball:new THREE.SphereGeometry(1,9,7),
+  ballLow:new THREE.SphereGeometry(1,7,5),
+  cyl:new THREE.CylinderGeometry(.5,.5,1,8),
+  pine:new THREE.ConeGeometry(1,1,7,1),
+  circle:new THREE.CircleGeometry(1,28),
+  log:new THREE.CylinderGeometry(.27,.27,.77,7),
+  logEnd:new THREE.CylinderGeometry(.268,.268,.037,7),
+  meatRim:new THREE.TorusGeometry(.20,.033,5,15)
+};
+let scene,camera,renderer,light,clock,hero,forest,gate,cabin,snow,roadDecor,playerShadow;
+let running=false,paused=false,soundOn=false,audioCtx=null;
+let lastTime=0,now=0,shake=0,attackClock=0,stockClock=0,serviceClock=0,dashClock=0,dashTime=0,saveClock=0,toastTime=0;
+let unlockShown=false,questShown=-1;
+const bears=[],trees=[],drops=[],particles=[],stalls=[],customerMeshes=[],floatLabels=[];
+const inputs={x:0,y:0,keys:new Set(),joyId:null,joyStartX:0,joyStartY:0};
+const tmpVec=new THREE.Vector3(),tmpVec2=new THREE.Vector3();
+const camOffset=new THREE.Vector3(20,28,31);
+const camLook=new THREE.Vector3(-8,0,-.5);
+let targetFrustum=22;
+let bgSnowTime=0;
+function mesh(geometry,material,parent,px=0,py=0,pz=0,sx=1,sy=1,sz=1){
+  const o=new THREE.Mesh(geometry,material);o.position.set(px,py,pz);o.scale.set(sx,sy,sz);
+  if(parent)parent.add(o);o.receiveShadow=false;return o;
+}
+function box(parent,material,x,y,z,sx,sy,sz){return mesh(geom.box,material,parent,x,y,z,sx,sy,sz)}
+function ball(parent,material,x,y,z,sx,sy,sz,low=false){return mesh(low?geom.ballLow:geom.ball,material,parent,x,y,z,sx,sy,sz)}
+function cylinder(parent,material,x,y,z,r,h,n=8){return mesh(new THREE.CylinderGeometry(r,r,h,n),material,parent,x,y,z)}
+function shadowDisc(parent,x=0,z=0,r=1){const o=mesh(geom.circle,new THREE.MeshBasicMaterial({color:0x5c8ea4,transparent:true,opacity:.15,depthWrite:false,side:THREE.DoubleSide}),parent,x,.015,z,r,r,r);o.rotation.x=-Math.PI/2;return o}
+function lineTube(parent,x1,y1,z1,x2,y2,z2,r,material){
+  const a=new THREE.Vector3(x1,y1,z1),b=new THREE.Vector3(x2,y2,z2);
+  const dir=b.clone().sub(a);const obj=mesh(new THREE.CylinderGeometry(r,r,dir.length(),6),material,parent);
+  obj.position.copy(a.add(b).multiplyScalar(.5));obj.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());return obj;
+}
+function makeWorld(){
+  scene=new THREE.Scene();scene.background=new THREE.Color(0xc3e8fb);scene.fog=new THREE.Fog(0xd1edfa,40,110);
+  camera=new THREE.OrthographicCamera(-10,10,10,-10,.1,200);camera.position.copy(camOffset).add(camLook);camera.lookAt(camLook);
+  renderer=new THREE.WebGLRenderer({canvas:UI.canvas,antialias:true,powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.7));renderer.setSize(innerWidth,innerHeight,false);
+  renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.38;
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  scene.add(new THREE.HemisphereLight(0xe9f8ff,0x9cb2b7,2.45));
+  const dl=new THREE.DirectionalLight(0xfff4e2,2.6);dl.position.set(-15,29,20);dl.castShadow=true;
+  dl.shadow.mapSize.set(1536,1536);dl.shadow.camera.left=-30;dl.shadow.camera.right=30;dl.shadow.camera.top=30;dl.shadow.camera.bottom=-30;
+  dl.shadow.camera.near=.1;dl.shadow.camera.far=100;dl.shadow.bias=-.00025;dl.shadow.normalBias=.06;light=dl;scene.add(dl);
+  createGround();createRoad();createForest();createStalls();createGate();createCabin();createBears();createPlayer();createSnowfall();createWorldLabels();
+  resize();window.addEventListener('resize',resize);
+}
+function createGround(){
+  const ground=mesh(new THREE.PlaneGeometry(200,105),M.snow,scene,0,-.1,-2);
+  ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;
+  const iceMats=[new THREE.MeshBasicMaterial({color:0xb0d6ed,transparent:true,opacity:.55,depthWrite:false,side:THREE.DoubleSide}),new THREE.MeshBasicMaterial({color:0xc0e2f4,transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide}),new THREE.MeshBasicMaterial({color:0xf6ffff,transparent:true,opacity:.65,depthWrite:false,side:THREE.DoubleSide})];
+  // 稍微不規則的冰河色塊，重現影片中道路下方的淡藍色雪地。
+  for(let i=0;i<43;i++){
+    const cx=rand(-75,75),cz=rand(10,48),w=rand(2,9),h=rand(1.2,4.2);
+    const ps=[];const steps=rnd(7,10);
+    for(let j=0;j<steps;j++){const a=j/steps*Math.PI*2,noise=rand(.84,1.12);ps.push(new THREE.Vector3(cx+Math.cos(a)*w*noise,.011+i*.00008,cz+Math.sin(a)*h*noise))}
+    const vs=[];for(let j=0;j<steps;j++){vs.push(cx,.011+i*.00008,cz,ps[j].x,ps[j].y,ps[j].z,ps[(j+1)%steps].x,ps[(j+1)%steps].y,ps[(j+1)%steps].z)}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vs,3));g.computeVertexNormals();
+    mesh(g,iceMats[i%3],scene);
+  }
+  for(let i=0;i<130;i++){
+    const x=rand(-70,70),z=rand(-36,42);if(Math.abs(z)<4.2)continue;
+    const r=rand(.08,.26);const blob=mesh(geom.ballLow,M.white,scene,x,rand(.02,.07),z,r,.06,r*rand(.7,1.4));
+    blob.rotation.y=rand(0,6.28);
+  }
+  for(let i=0;i<32;i++){
+    const g=new THREE.Group();g.position.set(rand(-55,62),0,rand(11,40));scene.add(g);
+    const size=rand(.25,.75);shadowDisc(g,0,0,size*1.3);
+    ball(g,mat(i%2?0xc7d4dc:0xb1c5cc),0,size*.28,0,size,size*.55,size*.8,true);
+    if(i%3===0)ball(g,M.white,-size*.1,size*.66,0,size*.62,size*.25,size*.56,true);
+  }
+}
+function createRoad(){
+  roadDecor=new THREE.Group();scene.add(roadDecor);
+  const main=box(roadDecor,M.road,0,.03,0,170,.13,6.45);main.receiveShadow=true;
+  box(roadDecor,M.roadEdge,0,.115,-3.33,170,.19,.16);
+  box(roadDecor,M.roadEdge,0,.115,3.33,170,.19,.16);
+  const dustMat=new THREE.MeshBasicMaterial({color:0xffd5ac,transparent:true,opacity:.65,depthWrite:false});
+  for(let i=0;i<195;i++){
+    const x=rand(-80,80),z=rand(-3,3);
+    const d=mesh(geom.circle,dustMat,roadDecor,x,.116,z,rand(.018,.065),rand(.018,.065),1);
+    d.rotation.x=-Math.PI/2;
+  }
+  const plank=mat(0xc58f69),post=mat(0x986f55);
+  for(let x=-48;x<=56;x+=3.1){
+    if(stallOpening(x))continue;
+    // 道路南側木欄柵；有開口通往顧客隊伍與攤位。
+    for(const dx of [-1.2,1.2]){
+      box(roadDecor,post,x+dx,.48,3.62,.2,.94,.2);
+      const cap=box(roadDecor,M.white,x+dx,1.0,3.62,.25,.17,.25);cap.rotation.z=.02;
+    }
+    box(roadDecor,plank,x,.5,3.62,2.7,.12,.15);
+    box(roadDecor,plank,x,.81,3.62,2.7,.12,.15);
+  }
+  // 路面物資擺放框。
+  for(let x=-35;x<=44;x+=5.8){
+    if(Math.abs(x-23)<3)continue;
+    drawDashedRect(roadDecor,x,.135,2.24,2.1,1.22,0xf8ecde);
+  }
+  // 路旁木箱。
+  for(let i=0;i<35;i++){
+    const x=rand(-46,55),z=Math.random()>.5?rand(4.2,5.8):rand(-5.9,-4.7);
+    if(stallOpening(x))continue;
+    const crate=new THREE.Group();crate.position.set(x,0,z);scene.add(crate);crate.rotation.y=rand(-.6,.6);
+    const s=rand(.45,.85);box(crate,M.wood,0,s*.4,0,s,s*.8,s);
+    for(const dy of [.13,.43,.73])box(crate,M.woodLight,0,s*dy,s*.505,s*.94,.06,.04);
+    for(const xx of [-.48,.48])box(crate,M.woodLight,s*xx,s*.40,0,.06,s*.72,s*.95);
+  }
+}
+function stallOpening(x){return [-17,-5,8,19].some(px=>Math.abs(x-px)<2.35)||Math.abs(x-26)<3.5}
+function drawDashedRect(parent,x,y,z,w,d,color){
+  const m=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.86});
+  const n=5;
+  for(let i=0;i<n;i++){
+    const a=-w/2+w*(i+.5)/n;
+    box(parent,m,x+a,y,z-d/2,w/n*.67,.01,.045);
+    box(parent,m,x+a,y,z+d/2,w/n*.67,.01,.045);
+  }
+  for(let i=0;i<3;i++){
+    const a=-d/2+d*(i+.5)/3;
+    box(parent,m,x-w/2,y,z+a,.045,.01,d/3*.66);
+    box(parent,m,x+w/2,y,z+a,.045,.01,d/3*.66);
+  }
+}
+function createForest(){
+  forest=new THREE.Group();scene.add(forest);
+  const count=285;
+  const trunkGeo=new THREE.CylinderGeometry(.18,.23,.9,6);
+  const variants=[{r:1.12,h:1.24,y:.89},{r:.9,h:1.14,y:1.48},{r:.71,h:1.08,y:2.08}];
+  const pineMeshes=variants.map((v,j)=>{
+    const im=new THREE.InstancedMesh(geom.pine,[M.pine0,M.pine1,M.pine2][j],count);
+    im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);im.frustumCulled=false;im.receiveShadow=false;
+    forest.add(im);return im;
+  });
+  const trunks=new THREE.InstancedMesh(trunkGeo,M.bark,count);trunks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);trunks.frustumCulled=false;forest.add(trunks);
+  const dummy=new THREE.Object3D();
+  for(let i=0;i<count;i++){
+    let x,z,tries=0;
+    do{x=rand(-75,75);z=rand(-39,-5.1);tries++}while(tries<15&&(Math.abs(x+8)<3&&z>-10||Math.abs(x-29)<4&&z>-11||Math.abs(x-23)<2.7&&z>-10));
+    const s=rand(.72,1.32),rotation=rand(0,Math.PI*2);
+    trees.push({x,z,s,rotation,hp:2,active:true,respawn:0,hit:0,index:i});
+    drawPineInstance(trees[i],pineMeshes,trunks,variants,dummy);
+  }
+  forest.userData={pineMeshes,trunks,variants,dummy};
+  // 小樹樁與石塊。
+  for(let i=0;i<26;i++){
+    const x=rand(-45,45),z=rand(-14,-5.8);if(Math.abs(x+8)<3)continue;
+    if(i%3===0){const o=cylinder(scene,M.bark,x,.22,z,.35,.45,7);o.rotation.z=rand(-.2,.2);cylinder(scene,M.woodLight,x,.45,z,.34,.08,7)}
+  }
+}
+function drawPineInstance(t,meshes,trunks,variants,dummy){
+  const k=t.index,scale=t.active?t.s:0;
+  dummy.position.set(t.x,.46,t.z);dummy.rotation.set(0,t.rotation,0);dummy.scale.set(scale,scale,scale);dummy.updateMatrix();trunks.setMatrixAt(k,dummy.matrix);
+  for(let j=0;j<3;j++){
+    const v=variants[j];dummy.position.set(t.x,t.s*v.y,t.z);
+    dummy.rotation.set(0,t.rotation+j*.19,t.hit?Math.sin(t.hit*32)*.04:0);
+    dummy.scale.set(scale*v.r,scale*v.h,scale*v.r);dummy.updateMatrix();meshes[j].setMatrixAt(k,dummy.matrix);
+    meshes[j].instanceMatrix.needsUpdate=true;
+  }
+  trunks.instanceMatrix.needsUpdate=true;
+}
+function hitTree(t,damage){
+  if(!t.active)return;
+  t.hp-=damage;t.hit=.27;
+  spawnParticles(t.x,t.z,[0xffffff,0xbaf0ff,0x6db8e0],8,.65);
+  if(t.hp<=0){t.active=false;t.respawn=now+rand(15,23);state.cut++;
+    const {pineMeshes,trunks,variants,dummy}=forest.userData;drawPineInstance(t,pineMeshes,trunks,variants,dummy);
+    for(let i=0;i<3;i++)spawnDrop('wood',t.x+rand(-.8,.8),t.z+rand(-.7,.7));
+    sound('chop');if(state.cut===1)showToast('砍倒雪松！拾取地上的木材');
+    updateQuest();save();
+  }else sound('hit');
+}
+function createBear(x,z){
+  const root=new THREE.Group();root.position.set(x,0,z);scene.add(root);
+  shadowDisc(root,-.02,0,.99);
+  const torso=ball(root,M.bear,-.05,.68,0,1.04,.63,.66,true);
+  const head=ball(root,M.bear,.79,.91,0,.50,.47,.43,true);
+  ball(root,M.bear,1.13,.76,0,.37,.30,.30,true);
+  ball(root,M.black,1.42,.72,0,.09,.10,.13,true);
+  for(const zz of [-.32,.32]){
+    const ear=ball(root,M.bear,.83,1.28,zz,.17,.17,.16,true);
+    ball(root,M.black,1.12,1.02,zz>0?.29:-.29,.056,.058,.047,true);
+  }
+  for(const xx of [-.67,.63])for(const zz of [-.41,.41]){
+    const leg=ball(root,M.bear,xx,.24,zz,.26,.34,.27,true);leg.userData.leg=true;
+  }
+  ball(root,M.bear,-1.05,.7,0,.22,.2,.19,true);
+  // 血條永遠朝向攝影機。
+  const bar=new THREE.Group();bar.position.set(0,2.15,0);root.add(bar);
+  const bg=box(bar,M.blackPad,0,0,0,1.48,.18,.085);
+  const red=box(bar,M.red,0,.004,.055,1.37,.13,.085);
+  const bear={root,x,z,hp:4,maxHp:4,alive:true,respawn:0,wanderX:rand(-1,1),wanderZ:rand(-1,1),wanderT:rand(1,4),speed:rand(.6,.92),red,bar,phase:rand(0,7),hitPulse:0};
+  bears.push(bear);return bear;
+}
+function createBears(){
+  [[-11,-8.6],[-4,-10.7],[3,-8],[9,-12],[17,-8.9],[-22,-9.5],[30,-10.8],[-36,-9.7],[42,-9.2]].forEach(([x,z])=>createBear(x,z));
+}
+function updateBears(dt){
+  for(const b of bears){
+    if(!b.alive){if(now>b.respawn){b.alive=true;b.hp=b.maxHp;b.red.scale.x=1.37;b.red.position.x=0;b.root.visible=true;b.x=b.root.position.x+rand(-2,2);b.z=rand(-12,-7);b.root.position.set(b.x,0,b.z)}continue}
+    b.wanderT-=dt;b.hitPulse=Math.max(0,b.hitPulse-dt);
+    if(b.wanderT<=0){b.wanderT=rand(1.5,4);b.wanderX=rand(-1,1);b.wanderZ=rand(-1,1)}
+    const dist=Math.hypot(hero.root.position.x-b.x,hero.root.position.z-b.z);
+    let dx=b.wanderX,dz=b.wanderZ;
+    if(dist<5.6){dx=(hero.root.position.x-b.x)/Math.max(.01,dist);dz=(hero.root.position.z-b.z)/Math.max(.01,dist)}
+    if(b.z>-6.3)dz-=.85;
+    if(b.z<-25)dz+=.95;
+    if(!state.gateOpen&&b.x>23)dx-=.5;
+    const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;
+    const speed=b.speed*(dist<5.6?1.52:.64);
+    b.x+=dx*speed*dt;b.z+=dz*speed*dt;
+    b.root.position.set(b.x,Math.sin(now*7+b.phase)*.036,b.z);
+    b.root.rotation.y=THREE.MathUtils.lerp(b.root.rotation.y,-Math.atan2(dz,dx),Math.min(1,dt*5));
+    b.bar.quaternion.copy(camera.quaternion);
+    if(b.hitPulse>0)b.root.scale.setScalar(1+Math.sin(b.hitPulse*21)*.045);else b.root.scale.setScalar(1);
+    if(dist<1.05&&now>(hero.lastHurt||0)+2.2){hero.lastHurt=now;shake=.20;spawnParticles(hero.root.position.x,hero.root.position.z,[0xeaffff,0xffc0af],9,1.5);showToast('受到衝撞！使用衝刺快速脫離');sound('hurt')}
+  }
+}
+function hitBear(b,damage){
+  if(!b.alive)return;
+  b.hp-=damage;b.hitPulse=.32;shake=Math.max(shake,.09);
+  b.red.scale.x=Math.max(0,1.37*Math.max(0,b.hp)/b.maxHp);
+  b.red.position.x=-(1.37-b.red.scale.x)/2;
+  spawnParticles(b.x,b.z,[0xf57770,0xffb9b8,0xf9f8ed],11,.95);
+  floatText(b.x,b.z,`-${damage}`,'#ff746d');sound('hit');
+  if(b.hp<=0){b.alive=false;b.root.visible=false;b.respawn=now+rand(9,15);state.kills++;
+    for(let j=0;j<rnd(2,4);j++)spawnDrop('meat',b.x+rand(-.8,.8),b.z+rand(-.65,.65));
+    if(Math.random()>.47)spawnDrop('cash',b.x+rand(-.4,.4),b.z+rand(-.4,.4));
+    spawnParticles(b.x,b.z,[0xf2ffff,0xffffff,0x92d6fa],16,1.5);sound('collect');
+    if(state.kills===1)showToast('取得生肉！帶去道路旁的肉類攤位');
+    updateQuest();save();
+  }
+}
+function createStalls(){
+  const config=[{x:-17,type:'meat'},{x:-5,type:'wood'},{x:8,type:'meat'},{x:19,type:'wood'}];
+  for(const c of config){
+    const root=new THREE.Group();root.position.set(c.x,0,3.5);scene.add(root);
+    shadowDisc(root,0,.34,1.2);
+    // 長凳、桌面、腿與售貨籃。
+    box(root,M.woodLight,0,.61,0,2.35,.19,.87);
+    for(const xx of [-.93,.93])for(const zz of [-.28,.28])box(root,M.wood,xx,.32,zz,.18,.58,.18);
+    box(root,M.wood,0,.80,-.26,1.82,.22,.25);
+    for(let j=0;j<3;j++)box(root,M.woodLight,-.66+j*.66,.81,-.42,.56,.14,.09);
+    const cargo=new THREE.Group();cargo.position.set(0,.89,0);root.add(cargo);
+    const pad=mesh(new THREE.CylinderGeometry(1.12,1.26,.065,20),M.green,root,0,.08,-1.05,1,.30,.64);pad.material=mat(0x4be8a3,.5,{transparent:true,opacity:.58,emissive:0x1ac27e,emissiveIntensity:.2});
+    const station={x:c.x,z:2.15,type:c.type,root,stock:0,cargo,pad,sprite:null,customers:[],serviceT:rand(1.8,3.2),flash:0,depositT:0};
+    station.sprite=createStationSign(c.type);station.sprite.position.set(0,2.72,.0);root.add(station.sprite);
+    stalls.push(station);
+    for(let j=0;j<6;j++){
+      const nc=createCustomer(c.x+rand(-.12,.12),5.8+j*1.5,j);scene.add(nc.root);
+      station.customers.push(nc);
+    }
+    rebuildStock(station);
+  }
+}
+function createCustomer(x,z,id){
+  const root=new THREE.Group();root.position.set(x,0,z);root.rotation.y= -Math.PI/2;
+  shadowDisc(root,0,0,.37);
+  const coat=mat([0x1c95bf,0x257fb3,0x2e9ac0,0x126eae][id%4]);
+  box(root,coat,0,.77,0,.56,.75,.45);
+  ball(root,coat,0,1.17,0,.35,.38,.34,true);
+  ball(root,mat(0xffd2b8),.25,1.12,0,.16,.19,.24,true);
+  for(const zz of [-.18,.18]){
+    box(root,coat,0,.27,zz,.22,.43,.19);
+    box(root,M.dark,.13,.095,zz,.36,.17,.21);
+  }
+  const armM=coat;
+  for(const zz of [-.33,.33])box(root,armM,-.01,.73,zz,.23,.57,.20);
+  const c={root,phase:rand(0,7),x,z};customerMeshes.push(c);return c;
+}
+function createStationSign(type){
+  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=256;
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false,depthWrite:false}));
+  sprite.scale.set(2.45,1.22,1);sprite.userData={canvas,texture,type};drawStationSign(sprite,0);return sprite;
+}
+function drawStationSign(sprite,number){
+  const {canvas,texture,type}=sprite.userData,c=canvas.getContext('2d');c.clearRect(0,0,512,256);
+  c.shadowColor='rgba(23,69,86,.20)';c.shadowBlur=20;c.shadowOffsetY=10;
+  c.fillStyle='#ffffff';round(c,95,20,322,190,89);c.fill();c.shadowBlur=0;c.shadowOffsetY=0;
+  c.lineWidth=6;c.strokeStyle=number>0?'#65db99':'#d6e4e5';round(c,100,25,312,180,82);c.stroke();
+  if(type==='meat'){
+    c.save();c.translate(178,113);c.rotate(-.4);
+    c.fillStyle='#eb7878';c.beginPath();c.ellipse(0,0,43,32,0,0,Math.PI*2);c.fill();
+    c.strokeStyle='#ffe0d8';c.lineWidth=8;c.beginPath();c.ellipse(0,0,27,18,0,0,Math.PI*2);c.stroke();
+    c.fillStyle='#e7f1ec';c.fillRect(38,-7,30,14);c.beginPath();c.arc(70,0,10,0,7);c.fill();c.restore();
+  }else{
+    c.save();c.translate(177,116);c.rotate(-.3);c.fillStyle='#b87944';round(c,-40,-25,75,26,7);c.fill();round(c,-31,10,75,26,7);c.fill();
+    c.fillStyle='#ebbb87';c.beginPath();c.arc(35,-12,13,0,Math.PI*2);c.fill();c.beginPath();c.arc(44,23,13,0,Math.PI*2);c.fill();c.restore();
+  }
+  c.fillStyle='#1e4755';c.font='900 66px "DM Sans",Arial';c.fillText(String(number),275,136);
+  c.fillStyle='#5d8a8e';c.font='800 25px sans-serif';c.fillText(type==='meat'?'肉類':'木材',274,176);
+  texture.needsUpdate=true;
+}
+function round(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+function rebuildStock(st){
+  while(st.cargo.children.length){const o=st.cargo.children[0];st.cargo.remove(o)}
+  const count=Math.min(st.stock,12);
+  for(let i=0;i<count;i++){
+    const item=makeItem(st.type,.37);
+    item.position.set(-.59+(i%3)*.58,Math.floor(i/3)*.19,-.08);
+    item.rotation.y=i*2.35;st.cargo.add(item);
+  }
+  drawStationSign(st.sprite,st.stock);
+}
+function createGate(){
+  gate=new THREE.Group();gate.position.set(26.5,0,0);scene.add(gate);
+  const f=mat(0x8f5c38),beam=mat(0xad7140),red=mat(0xc84e3e);
+  for(const z of [-3.6,3.6]){
+    box(gate,f,0,1.14,z,.7,2.28,.7);
+    box(gate,beam,0,2.33,z,.98,.32,.98);
+    box(gate,M.white,0,2.56,z,.92,.24,.92);
+  }
+  gate.userData.bar=new THREE.Group();gate.add(gate.userData.bar);
+  for(let j=0;j<4;j++){
+    const g=gate.userData.bar;
+    box(g,j%2?red:beam,0,.62+j*.49,0,.22,.44,6.45);
+  }
+  box(gate.userData.bar,beam,0,2.64,0,.36,.29,7.2);
+  const pad=mesh(new THREE.CylinderGeometry(1.08,1.15,.1,25),M.yellow,scene,22.2,.06,1.3,1,.5,1);
+  pad.material=mat(0xffca65,.55,{emissive:0xe5a72c,emissiveIntensity:.26});gate.userData.pad=pad;
+  const spr=createLabelSprite('解鎖新雪林','$180',0xffd07a);spr.scale.set(3.5,1.35,1);spr.position.set(22.2,2.9,1.3);scene.add(spr);gate.userData.sprite=spr;
+  syncGate();
+}
+function syncGate(){
+  if(!gate)return;
+  gate.userData.bar.visible=!state.gateOpen;
+  gate.userData.pad.visible=!state.gateOpen;
+  gate.userData.sprite.visible=!state.gateOpen;
+  UI.region.textContent=state.gateOpen?'霜雪前哨 · 東側森林已解鎖':'霜雪前哨 · 初始森林';
+}
+function createCabin(){
+  cabin=new THREE.Group();cabin.position.set(34,0,-5.5);cabin.rotation.y=-.08;scene.add(cabin);
+  shadowDisc(cabin,0,0,3.4);
+  const body=box(cabin,mat(0xb8784d),0,1.7,0,6.8,3.4,4.7);body.receiveShadow=true;
+  const line=mat(0x965b35);
+  for(let j=0;j<7;j++)box(cabin,line,0,.34+j*.46,2.385,6.85,.12,.06);
+  const roof=mat(0x943f32);
+  const l=box(cabin,roof,-1.75,3.79,0,4.1,.22,5.5);l.rotation.z=-.47;
+  const r=box(cabin,roof,1.75,3.79,0,4.1,.22,5.5);r.rotation.z=.47;
+  for(const x of [-2.3,2.3]){
+    box(cabin,line,x,1.2,2.47,.16,2.4,.15);
+    box(cabin,line,x,2.4,2.47,.8,.14,.15);
+  }
+  box(cabin,M.blackPad,0,1.35,2.42,1.7,2.4,.08);
+  box(cabin,mat(0x553a2f),0,1.3,2.52,1.5,2.3,.1);
+  ball(cabin,M.yellow,.51,1.24,2.62,.08,.08,.05);
+  for(const x of [-2.55,2.55])box(cabin,mat(0xa6dcf3),x,1.75,2.53,1.03,1,.13);
+  for(let i=0;i<12;i++){
+    const x=rand(-3,3),z=rand(-3.5,3.5);if(Math.abs(x)<1.25&&z>1)continue;
+    const t=box(cabin,M.woodLight,x,.12,z,.8,.24,.23);t.rotation.y=rand(0,6);
+  }
+}
+function createWorldLabels(){
+  for(const [x,z,label] of [[-5,-1.1,'木材加工'],[8,-1.1,'肉類商店']]){
+    // labels built on stalls instead of blocking view of player.
+  }
+  const b=new THREE.Group();b.position.set(39,0,7.1);scene.add(b);
+  for(let j=0;j<5;j++){const o=box(b,M.woodLight,j*.62,.27,0,.56,.54,.56);o.rotation.y=rand(-.2,.2)}
+}
+function createLabelSprite(title,subtitle,color){
+  const cv=document.createElement('canvas');cv.width=512;cv.height=192;const c=cv.getContext('2d');
+  c.fillStyle='rgba(18,59,70,.92)';round(c,10,10,492,173,35);c.fill();
+  c.strokeStyle='#a8e9d9';c.lineWidth=3;round(c,15,15,482,163,30);c.stroke();
+  c.fillStyle='#f5ffff';c.font='900 44px "PingFang TC",sans-serif';c.textAlign='center';c.fillText(title,256,78);
+  c.fillStyle=`#${new THREE.Color(color).getHexString()}`;c.font='900 57px "DM Sans",sans-serif';c.fillText(subtitle,256,145);
+  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false}));return sprite;
+}
+function createPlayer(){
+  const root=new THREE.Group();root.position.set(-8,0,-1.4);scene.add(root);
+  playerShadow=shadowDisc(root,0,0,.77);
+  const ringGeo=new THREE.RingGeometry(.7,.80,48);
+  const ring=mesh(ringGeo,new THREE.MeshBasicMaterial({color:0x5dffd6,transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}),root,0,.055,0);
+  ring.rotation.x=-Math.PI/2;
+  const body=new THREE.Group();root.add(body);
+  box(body,M.coat,0,.98,0,.73,.85,.56);
+  box(body,M.coatDark,-.09,1.12,.34,.48,.38,.10);
+  ball(body,M.skin,.07,1.66,0,.31,.32,.30,true);
+  box(body,M.coatDark,.05,1.93,-.04,.68,.20,.72);
+  box(body,M.coat,0,2.03,-.03,.55,.19,.56);
+  box(body,M.white,.11,1.95,.29,.2,.10,.08);
+  for(const z of [-.38,.38]){
+    box(body,M.coat,.08,1.0,z,.29,.73,.27);
+    ball(body,M.skin,.08,.66,z,.15,.15,.14,true);
+  }
+  for(const z of [-.22,.22]){
+    box(body,M.coatDark,0,.38,z,.26,.6,.26);
+    box(body,M.dark,.17,.12,z,.42,.22,.31);
+  }
+  box(body,M.meat,-.40,1.1,0,.35,.65,.55);
+  box(body,M.woodLight,-.63,.99,0,.12,.63,.62);
+  // 身後物資會按實際背包容量逐件堆高。
+  const stack=new THREE.Group();stack.position.set(-.49,1.65,-.20);root.add(stack);
+  const weaponPivot=new THREE.Group();root.add(weaponPivot);
+  const blades=[];for(let i=0;i<2;i++){
+    const w=createSickle();weaponPivot.add(w);blades.push(w);
+  }
+  const scytheTrail=mesh(new THREE.TorusGeometry(2.05,.055,5,50,Math.PI*1.36),new THREE.MeshBasicMaterial({color:0xddffff,transparent:true,opacity:.33,depthWrite:false,side:THREE.DoubleSide}),root,0,.93,0);
+  scytheTrail.rotation.x=Math.PI/2;scytheTrail.visible=false;
+  hero={root,body,ring,stack,weaponPivot,blades,scytheTrail,heading:0,vel:new THREE.Vector3(),walkPhase:0,lastHurt:-10,stackT:-1};
+  rebuildBackpack();
+}
+function createSickle(){
+  const g=new THREE.Group();g.position.y=1.05;
+  lineTube(g,-.25,0,-.08,.88,0,.02,.07,M.wood);
+  // 彎曲鐮刀刃：彎月形狀以 Shape 幾何構成，貼近影片中的環繞揮砍特效。
+  const sh=new THREE.Shape();sh.moveTo(.66,-.09);sh.quadraticCurveTo(1.55,-.74,1.78,.02);sh.quadraticCurveTo(1.31,-.36,.82,.18);sh.lineTo(.66,-.09);
+  const blade=mesh(new THREE.ExtrudeGeometry(sh,{depth:.07,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:.025,bevelThickness:.02}),M.metal,g,.04,-.018,0);
+  blade.rotation.x=Math.PI/2;
+  const rivet=ball(g,M.silver,.77,.02,0,.12,.1,.11,true);
+  return g;
+}
+function makeItem(type,scale=1){
+  const g=new THREE.Group();g.scale.setScalar(scale);
+  if(type==='meat'){
+    ball(g,M.meat,0,.12,0,.35,.25,.29,true);
+    const r=mesh(geom.meatRim,M.bone,g,0,.33,0);r.rotation.x=Math.PI/2;
+    box(g,M.bone,.31,.08,0,.28,.11,.12);ball(g,M.bone,.43,.08,.05,.10,.11,.10,true);
+  }else if(type==='wood'){
+    const log=mesh(geom.log,M.wood,g,0,.20,0);log.rotation.z=Math.PI/2;
+    for(const s of [-1,1]){
+      const end=mesh(geom.logEnd,M.woodLight,g,.385*s,.20,0);
+      end.rotation.z=Math.PI/2;
+      ball(g,M.woodLight,.405*s,.2,0,.012,.08,.07,true);
+    }
+  }else{
+    box(g,M.cash,0,.12,0,.68,.17,.45);
+    box(g,M.cashDark,0,.215,0,.28,.02,.46);
+    box(g,M.woodLight,0,.23,0,.18,.02,.25);
+  }
+  return g;
+}
+function rebuildBackpack(){
+  if(!hero)return;
+  const total=state.meat+state.wood;
+  if(hero.stackT===`${state.meat},${state.wood}`)return;
+  hero.stackT=`${state.meat},${state.wood}`;
+  while(hero.stack.children.length)hero.stack.remove(hero.stack.children[0]);
+  const types=[];let a=state.wood,b=state.meat;
+  while(types.length<Math.min(19,total)){
+    if(a>0){types.push('wood');a--}
+    if(b>0&&types.length<19){types.push('meat');b--}
+  }
+  types.forEach((type,i)=>{
+    const item=makeItem(type,type==='wood'?.95:.83);
+    item.position.set((i%2)*.07, i*.25, i%2===0?.02:-.04);
+    item.rotation.y=i*.2;hero.stack.add(item);
+  });
+}
+function spawnDrop(type,x,z){
+  const o=makeItem(type,.70);o.position.set(x,.2,z);o.rotation.y=rand(0,7);scene.add(o);
+  drops.push({type,mesh:o,x,z,y:.22,vY:rand(2.8,4.2),age:0,phase:rand(0,6.2),value:type==='cash'?rnd(2,5):1});
+}
+function updateDrops(dt){
+  for(let i=drops.length-1;i>=0;i--){
+    const d=drops[i];d.age+=dt;d.vY-=9.8*dt;d.y+=d.vY*dt;
+    if(d.y<.26){d.y=.26;if(d.vY<-.25)d.vY=Math.abs(d.vY)*.3;else d.vY=0}
+    d.mesh.position.y=d.y+Math.sin(now*3+d.phase)*.065;d.mesh.rotation.y+=dt*1.05;
+    const dx=hero.root.position.x-d.x,dz=hero.root.position.z-d.z,dist=Math.hypot(dx,dz);
+    if(dist<2.65&&d.age>.34){
+      if(d.type!=='cash'&&state.meat+state.wood>=capacity())continue;
+      const rate=dist<1.1?16:6;d.x+=dx/Math.max(dist,.01)*rate*dt;d.z+=dz/Math.max(dist,.01)*rate*dt;
+      d.mesh.position.x=d.x;d.mesh.position.z=d.z;
+      if(dist<.48){
+        if(d.type==='wood')state.wood++;
+        else if(d.type==='meat')state.meat++;
+        else state.coins+=d.value;
+        if(d.type==='cash')floatText(d.x,d.z,`+$${d.value}`,'#64e9a1');
+        else floatText(d.x,d.z,'+1',d.type==='meat'?'#ff9e9e':'#baffc8');
+        scene.remove(d.mesh);drops.splice(i,1);rebuildBackpack();updateHUD();sound('pickup');
+      }
+    }
+    if(d.age>85){scene.remove(d.mesh);drops.splice(i,1)}
+  }
+}
+function spawnParticles(x,z,colors,count=8,power=1){
+  for(let i=0;i<count;i++){
+    const color=colors[Math.floor(Math.random()*colors.length)];const size=rand(.045,.15);
+    const m=mesh(geom.box,new THREE.MeshBasicMaterial({color,transparent:true,opacity:.95,depthWrite:false}),scene,x+rand(-.28,.28),rand(.45,1.15),z+rand(-.27,.27),size,size,size);
+    particles.push({mesh:m,vel:new THREE.Vector3(rand(-3,3)*power,rand(1.9,4.3)*power,rand(-3,3)*power),life:rand(.4,.85),max:.85,rot:rand(-8,8)});
+  }
+}
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];p.life-=dt;p.vel.y-=11.3*dt;
+    p.mesh.position.addScaledVector(p.vel,dt);p.mesh.rotation.x+=p.rot*dt;p.mesh.rotation.z+=dt*4;
+    p.mesh.material.opacity=Math.max(0,p.life/.7);
+    if(p.life<=0||p.mesh.position.y<0){scene.remove(p.mesh);p.mesh.material.dispose();particles.splice(i,1)}
+  }
+}
+function createSnowfall(){
+  const len=650;const positions=new Float32Array(len*3),speeds=new Float32Array(len);
+  for(let i=0;i<len;i++){
+    positions[i*3]=rand(-27,27);positions[i*3+1]=rand(1,24);positions[i*3+2]=rand(-27,27);speeds[i]=rand(.3,1.4);
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(positions,3));
+  const m=new THREE.PointsMaterial({color:0xffffff,size:.10,transparent:true,opacity:.75,depthWrite:false,sizeAttenuation:true});
+  snow=new THREE.Points(g,m);snow.userData.speeds=speeds;scene.add(snow);
+}
+function updateSnow(dt){
+  if(!snow)return;
+  bgSnowTime+=dt;snow.position.x=hero.root.position.x;snow.position.z=hero.root.position.z;
+  const p=snow.geometry.attributes.position,a=p.array,s=snow.userData.speeds;
+  for(let i=0;i<s.length;i++){
+    a[i*3+1]-=s[i]*dt*1.5;a[i*3]+=.23*dt;
+    if(a[i*3+1]<.15){a[i*3+1]=rand(15,24);a[i*3]=rand(-27,27);a[i*3+2]=rand(-27,27)}
+  }
+  p.needsUpdate=true;
+}
+function floatText(x,z,message,color='#fff'){
+  if(floatLabels.length>24)return;
+  const el=document.createElement('div');el.className='float-label';el.textContent=message;
+  Object.assign(el.style,{position:'fixed',zIndex:'8',fontFamily:'DM Sans,sans-serif',color,fontWeight:'900',fontSize:'17px',pointerEvents:'none',textShadow:'0 2px 3px #16455a,0 0 14px rgba(0,0,0,.3)',transition:'transform .8s ease-out,opacity .8s ease-out',opacity:'1'});
+  document.body.appendChild(el);
+  const pos=toScreen(x,1.6,z);
+  if(pos){el.style.left=`${pos.x}px`;el.style.top=`${pos.y}px`;requestAnimationFrame(()=>{el.style.transform='translate(-50%,-70px) scale(1.15)';el.style.opacity='0'})}
+  floatLabels.push({el,time:now+.92});
+}
+function toScreen(x,y,z){const v=new THREE.Vector3(x,y,z);v.project(camera);return {x:(v.x*.5+.5)*innerWidth,y:(-v.y*.5+.5)*innerHeight}}
+function updateFloatLabels(){for(let i=floatLabels.length-1;i>=0;i--)if(now>floatLabels[i].time){floatLabels[i].el.remove();floatLabels.splice(i,1)}}
+function capacity(){return 15+state.upgrades.capacity*5}
+function moveSpeed(){return 4.9*(1+state.upgrades.speed*.15)}
+function attackPower(){return 1+state.upgrades.power}
+function upgradeCost(k){return upgrades[k].base+upgrades[k].step*state.upgrades[k]}
+function addCoins(num){state.coins+=num;state.totalEarned+=num;updateHUD();updateQuest();}
+function updateStations(dt){
+  let nearStation=null;
+  for(const st of stalls){
+    const d=Math.hypot(hero.root.position.x-st.x,hero.root.position.z-st.z);
+    const glowing=d<2.3;st.pad.material.emissiveIntensity=glowing?.9:.2;
+    if(glowing)nearStation=st;
+    st.flash=Math.max(0,st.flash-dt);
+    st.depositT-=dt;
+    if(glowing&&st.depositT<=0){
+      st.depositT=.17;
+      if(state[st.type]>0){state[st.type]--;st.stock++;rebuildStock(st);rebuildBackpack();
+        spawnParticles(st.x,3,[0x56e795,0xc6fbe0],2,.35);sound('deposit');updateHUD();
+      }
+    }
+    st.serviceT-=dt;
+    if(st.stock>0&&st.serviceT<=0){
+      st.serviceT=rand(1.15,1.9);st.stock--;rebuildStock(st);state.sales++;
+      const earned=st.type==='meat'?15:11;
+      addCoins(earned);floatText(st.x,3.5,`+$${earned}`,'#ffe58d');sound('sell');
+      spawnParticles(st.x,4,[0x72e99f,0xffecaa],5,.6);
+      const first=st.customers.shift();st.customers.push(first);
+      for(let j=0;j<st.customers.length;j++){
+        const c=st.customers[j];c.x=st.x+rand(-.14,.14);c.z=5.8+j*1.50;
+      }
+      first.root.position.set(st.x+rand(-.12,.12),0,5.8+(st.customers.length+1)*1.5);
+      updateQuest();save();
+    }
+    for(const c of st.customers){
+      c.root.position.x=THREE.MathUtils.damp(c.root.position.x,c.x,4,dt);
+      c.root.position.z=THREE.MathUtils.damp(c.root.position.z,c.z,3,dt);
+      c.root.position.y=Math.sin(now*2.5+c.phase)*.017;
+    }
+  }
+  let prompt='';
+  if(nearStation){
+    const type=nearStation.type==='meat'?'生肉':'木材';
+    prompt=state[nearStation.type]>0?`正在自動上架${type}…`:`${type}攤位｜庫存 ${nearStation.stock}｜等待收集資源`;
+  }
+  const gd=Math.hypot(hero.root.position.x-22.2,hero.root.position.z-1.3);
+  if(!state.gateOpen&&gd<3.3){
+    prompt=state.coins>=180?'已達解鎖金額，靠近金色踏板':'新區域解鎖需要 $180';
+    if(gd<1.1&&state.coins>=180){state.coins-=180;state.gateOpen=true;syncGate();
+      spawnParticles(26.5,0,[0xfbe89c,0xa4ffec,0xffffff],55,2.6);
+      showToast('新區域已解鎖！探索東側雪林');sound('unlock');updateQuest();save();
+    }
+  }
+  if(!nearStation&&gd>=3.3&&state.meat+state.wood>=capacity())prompt='背包已滿！回到道路旁攤位上架商品';
+  UI.worldPrompt.classList.toggle('hidden',!prompt);UI.promptText.textContent=prompt;
+}
+function inputVector(){
+  let x=0,y=0;
+  if(inputs.keys.has('a')||inputs.keys.has('arrowleft'))x--;
+  if(inputs.keys.has('d')||inputs.keys.has('arrowright'))x++;
+  if(inputs.keys.has('w')||inputs.keys.has('arrowup'))y++;
+  if(inputs.keys.has('s')||inputs.keys.has('arrowdown'))y--;
+  x+=inputs.x;y+=inputs.y;
+  const l=Math.hypot(x,y);if(l>1){x/=l;y/=l}return {x,y};
+}
+function updatePlayer(dt){
+  const input=inputVector(),speed=moveSpeed()*(dashTime>0?2.35:1);
+  const right=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);right.y=0;right.normalize();
+  const up=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);up.y=0;up.normalize();
+  const targetVel=right.multiplyScalar(input.x*speed).addScaledVector(up,input.y*speed);
+  hero.vel.lerp(targetVel,1-Math.exp(-10*dt));
+  const px=hero.root.position.x,pz=hero.root.position.z;
+  let nx=px+hero.vel.x*dt,nz=pz+hero.vel.z*dt;
+  nx=clamp(nx,-49,state.gateOpen?55:24.6);nz=clamp(nz,-31,28);
+  if(nx>=24.5&&!state.gateOpen&&now>(hero.gateNotify??-10)+2){showToast('前方雪林尚未開放，到金色踏板付費解鎖');hero.gateNotify=now}
+  hero.root.position.set(nx,0,nz);
+  const moving=hero.vel.lengthSq()>.07;
+  if(moving){
+    hero.heading=Math.atan2(-hero.vel.z,hero.vel.x);
+    hero.body.rotation.y=THREE.MathUtils.damp(hero.body.rotation.y,hero.heading,9,dt);
+    hero.walkPhase+=dt*12*(dashTime>0?1.8:1);
+    hero.body.position.y=Math.abs(Math.sin(hero.walkPhase))*.075;
+    hero.body.rotation.z=Math.sin(hero.walkPhase)*.03;
+  }else{hero.body.position.y=THREE.MathUtils.damp(hero.body.position.y,0,8,dt)}
+  hero.ring.rotation.z+=dt*.32;
+  hero.ring.material.opacity=.55+Math.sin(now*4)*.18;
+  hero.weaponPivot.rotation.y=now*(state.upgrades.blades?6.9:5.9);
+  hero.blades[0].position.set(1.02,0,0);hero.blades[0].rotation.y=Math.PI*.27;
+  hero.blades[1].visible=state.upgrades.blades>0;
+  hero.blades[1].position.set(-1.02,0,0);hero.blades[1].rotation.y=-Math.PI*.72;
+  hero.scytheTrail.visible=attackClock>.12;
+  hero.scytheTrail.rotation.z+=dt*7;
+  dashTime=Math.max(0,dashTime-dt);
+  dashClock=Math.max(0,dashClock-dt);
+  UI.dashBtn.classList.toggle('on-cooldown',dashClock>0);
+  UI.dashCooldown.style.transform=`translateY(${Math.round((1-dashClock/4.1)*100)}%)`;
+  UI.dashLabel.textContent=dashClock>0?`${Math.ceil(dashClock)}s`:'衝刺';
+}
+function autoAttack(dt){
+  attackClock-=dt;
+  if(attackClock>0)return;
+  const x=hero.root.position.x,z=hero.root.position.z;
+  let attacked=false,count=0;
+  const damage=attackPower();
+  for(const b of bears){
+    if(!b.alive)continue;
+    if(Math.hypot(b.x-x,b.z-z)<2.65){hitBear(b,damage);attacked=true;count++;if(count>(state.upgrades.blades?3:1))break}
+  }
+  if(count<(state.upgrades.blades?4:2)){
+    const candidates=trees.filter(t=>t.active&&Math.abs(t.x-x)<2.5&&Math.abs(t.z-z)<2.5);
+    candidates.sort((a,b)=>((a.x-x)**2+(a.z-z)**2)-((b.x-x)**2+(b.z-z)**2));
+    for(const t of candidates.slice(0,state.upgrades.blades?3:1)){
+      if(Math.hypot(t.x-x,t.z-z)<2.2){hitTree(t,damage);attacked=true}
+    }
+  }
+  attackClock=attacked?.55:(state.upgrades.blades?.31:.38);
+  if(attacked){hero.scytheTrail.visible=true;hero.scytheTrail.material.opacity=.5;hero.scytheTrail.rotation.z=rand(0,5)}
+}
+function updateForest(dt){
+  const {pineMeshes,trunks,variants,dummy}=forest.userData;
+  for(const t of trees){
+    if(t.hit>0){t.hit=Math.max(0,t.hit-dt);drawPineInstance(t,pineMeshes,trunks,variants,dummy)}
+    if(!t.active&&now>t.respawn){t.active=true;t.hp=2;drawPineInstance(t,pineMeshes,trunks,variants,dummy)}
+  }
+}
+function updateCamera(dt){
+  const desired=hero.root.position.clone();desired.y=.45;
+  camLook.lerp(desired,1-Math.exp(-4.6*dt));
+  camera.position.copy(camLook).add(camOffset);
+  if(shake>0){camera.position.x+=(Math.random()-.5)*shake;camera.position.z+=(Math.random()-.5)*shake;shake=Math.max(0,shake-2*dt)}
+  camera.lookAt(camLook);camera.updateMatrixWorld();
+  light.position.set(camLook.x-15,29,camLook.z+20);light.target.position.set(camLook.x,0,camLook.z);light.target.updateMatrixWorld();
+}
+function updateHUD(){
+  UI.coin.textContent=Math.floor(state.coins).toLocaleString('en-US');
+  UI.meat.textContent=state.meat;UI.wood.textContent=state.wood;
+  UI.bag.textContent=`${state.meat+state.wood} / ${capacity()}`;
+  UI.upgradeBalance.textContent=state.coins.toLocaleString('en-US');
+  UI.upgradeDot.style.display=Object.keys(upgrades).some(k=>state.upgrades[k]<upgrades[k].max&&state.coins>=upgradeCost(k))?'block':'none';
+}
+function updateQuest(){
+  let step=state.questIndex;
+  while(step<quests.length-1&&quests[step].get()>=quests[step].target){
+    step++;
+    const bonus=30+(step-1)*16;
+    state.coins+=bonus;
+    if(running)showToast(`任務完成！獎勵 $${bonus} · 新任務已解鎖`);
+    sound('quest');
+  }
+  if(step!==state.questIndex){state.questIndex=step;save()}
+  const q=quests[step];
+  UI.levelBadge.textContent=`LV.${String(step+1).padStart(2,'0')}`;
+  UI.questTitle.textContent=q.title;
+  UI.questHint.textContent=q.hint;
+  UI.questBar.style.width=`${Math.min(100,Math.round(q.get()/q.target*100))}%`;
+  updateHUD();
+}
+function renderUpgrades(){
+  UI.upgradeBalance.textContent=state.coins.toLocaleString('en-US');
+  UI.upgradeList.innerHTML='';
+  for(const [key,u] of Object.entries(upgrades)){
+    const lvl=state.upgrades[key],cost=upgradeCost(key),max=lvl>=u.max;
+    const div=document.createElement('div');div.className='upgrade-row';
+    const icon=document.createElement('div');icon.className='upgrade-icon';icon.textContent=u.icon;
+    const desc=document.createElement('div');desc.className='upgrade-desc';
+    const n=document.createElement('strong');n.textContent=`${u.name}  ·  LV.${lvl}`;
+    const sub=document.createElement('small');sub.textContent=u.info;
+    desc.append(n,sub);
+    const btn=document.createElement('button');btn.className='upgrade-buy';
+    btn.textContent=max?'MAX':`$${cost}`;btn.disabled=max||state.coins<cost;
+    btn.addEventListener('click',()=>{
+      if(state.coins<cost||state.upgrades[key]>=u.max)return;
+      state.coins-=cost;state.upgrades[key]++;
+      sound('upgrade');spawnParticles(hero.root.position.x,hero.root.position.z,[0xa4ffe0,0xffd273],17,1.25);
+      updateHUD();renderUpgrades();rebuildBackpack();save();
+    });
+    div.append(icon,desc,btn);UI.upgradeList.append(div);
+  }
+}
+function showToast(text){UI.toast.textContent=text;UI.toast.classList.add('show');toastTime=now+2.8}
+function setPause(mode){
+  if(!running)return;
+  paused=mode;UI.pause.classList.toggle('hidden',!mode);UI.upgrade.classList.add('hidden');inputs.keys.clear();resetJoystick();
+}
+function openUpgrades(){if(!running||paused)return;paused=true;UI.upgrade.classList.remove('hidden');inputs.keys.clear();resetJoystick();renderUpgrades()}
+function closeUpgrades(){UI.upgrade.classList.add('hidden');paused=false}
+function doDash(){if(!running||paused||dashClock>0)return;dashTime=.38;dashClock=4.1;spawnParticles(hero.root.position.x,hero.root.position.z,[0xc9fff1,0xe4ffff],16,1.2);sound('dash')}
+function resetJoystick(){inputs.x=0;inputs.y=0;inputs.joyId=null;UI.joystickKnob.style.transform='translate(0,0)'}
+function bindControls(){
+  UI.startBtn.addEventListener('click',()=>{
+    UI.start.classList.add('hidden');UI.hud.classList.remove('hidden');running=true;paused=false;
+    updateQuest();showToast('探索開始！靠近北極熊與松樹會自動攻擊');
+    if(soundOn)initAudio();
+  });
+  UI.pauseBtn.addEventListener('click',()=>setPause(true));
+  UI.resumeBtn.addEventListener('click',()=>setPause(false));
+  UI.resetBtn.addEventListener('click',()=>{try{localStorage.removeItem(KEY)}catch{}location.reload()});
+  UI.upgradeBtn.addEventListener('click',openUpgrades);
+  UI.closeUpgrades.addEventListener('click',closeUpgrades);
+  UI.dashBtn.addEventListener('click',doDash);
+  UI.audioBtn.addEventListener('click',()=>{soundOn=!soundOn;UI.audioBtn.textContent=soundOn?'♫':'♪';UI.audioBtn.style.color=soundOn?'#95ffe1':'white';if(soundOn){initAudio();sound('pickup')}});
+  window.addEventListener('keydown',(e)=>{
+    const key=e.key.toLowerCase();if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(key))e.preventDefault();
+    if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key))inputs.keys.add(key);
+    if(e.repeat)return;
+    if(key===' '||key==='shift')doDash();
+    if(key==='u'){UI.upgrade.classList.contains('hidden')?openUpgrades():closeUpgrades()}
+    if(key==='escape'){
+      if(!UI.upgrade.classList.contains('hidden'))closeUpgrades();else setPause(!paused);
+    }
+    if(key==='enter'&&!running)UI.startBtn.click();
+  });
+  window.addEventListener('keyup',(e)=>inputs.keys.delete(e.key.toLowerCase()));
+  window.addEventListener('blur',()=>{inputs.keys.clear();resetJoystick();if(running&&!paused)setPause(true)});
+  const zone=UI.joystickZone;
+  zone.addEventListener('pointerdown',(e)=>{
+    if(!running||paused)return;
+    e.preventDefault();zone.setPointerCapture(e.pointerId);inputs.joyId=e.pointerId;
+    const rect=UI.joystickBase.getBoundingClientRect();inputs.joyStartX=rect.left+rect.width/2;inputs.joyStartY=rect.top+rect.height/2;updateJoy(e);
+  });
+  zone.addEventListener('pointermove',(e)=>{if(inputs.joyId===e.pointerId)updateJoy(e)});
+  const stop=(e)=>{if(inputs.joyId===e.pointerId)resetJoystick()};
+  zone.addEventListener('pointerup',stop);zone.addEventListener('pointercancel',stop);zone.addEventListener('lostpointercapture',stop);
+  // 行動裝置：也允許在左下四分之一螢幕直接拖曳，避免一定要摸到圓圈中央。
+  UI.canvas.addEventListener('pointerdown',(e)=>{
+    if(e.pointerType!=='touch'||!running||paused||inputs.joyId!==null)return;
+    if(e.clientX<innerWidth*.45&&e.clientY>innerHeight*.51){inputs.joyId=e.pointerId;inputs.joyStartX=e.clientX;inputs.joyStartY=e.clientY;UI.canvas.setPointerCapture(e.pointerId)}
+  });
+  UI.canvas.addEventListener('pointermove',(e)=>{
+    if(inputs.joyId!==e.pointerId)return;
+    const max=44,dx=e.clientX-inputs.joyStartX,dy=e.clientY-inputs.joyStartY,l=Math.hypot(dx,dy)||1;
+    inputs.x=clamp(dx/max,-1,1);inputs.y=clamp(-dy/max,-1,1);
+    if(l>max){inputs.x=dx/l;inputs.y=-dy/l}
+    UI.joystickKnob.style.transform=`translate(${inputs.x*36}px,${-inputs.y*36}px)`;
+  });
+  UI.canvas.addEventListener('pointerup',stop);UI.canvas.addEventListener('pointercancel',stop);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!paused)setPause(true)});
+}
+function updateJoy(e){
+  const dx=e.clientX-inputs.joyStartX,dy=e.clientY-inputs.joyStartY;
+  const l=Math.hypot(dx,dy)||1,max=41;
+  const amount=Math.min(l,max)/max;
+  inputs.x=dx/l*amount;inputs.y=-dy/l*amount;
+  UI.joystickKnob.style.transform=`translate(${inputs.x*39}px,${-inputs.y*39}px)`;
+}
+function initAudio(){if(!audioCtx)try{audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch{}}
+function sound(type){
+  if(!soundOn||!audioCtx)return;
+  try{
+    if(audioCtx.state==='suspended')audioCtx.resume();
+    const o=audioCtx.createOscillator(),gain=audioCtx.createGain(),t=audioCtx.currentTime;
+    const cfg={pickup:[610,900,.07,.035],hit:[250,120,.10,.060],chop:[240,140,.12,.052],sell:[750,1040,.16,.044],upgrade:[450,940,.27,.065],quest:[700,1260,.33,.05],deposit:[400,510,.07,.024],hurt:[185,90,.16,.06],dash:[320,730,.14,.042],unlock:[480,1190,.47,.07],collect:[330,700,.22,.042]}[type]||[400,500,.1,.03];
+    o.type=type==='hit'||type==='hurt'?'triangle':'sine';o.frequency.setValueAtTime(cfg[0],t);o.frequency.exponentialRampToValueAtTime(cfg[1],t+cfg[2]);
+    gain.gain.setValueAtTime(cfg[3],t);gain.gain.exponentialRampToValueAtTime(.001,t+cfg[2]);
+    o.connect(gain);gain.connect(audioCtx.destination);o.start(t);o.stop(t+cfg[2]);
+  }catch{}
+}
+function resize(){
+  const w=Math.max(1,innerWidth),h=Math.max(1,innerHeight),aspect=w/h;
+  targetFrustum=aspect<.7?22.5:aspect>1.4?23.5:23;
+  camera.left=-targetFrustum*aspect/2;camera.right=targetFrustum*aspect/2;
+  camera.top=targetFrustum/2;camera.bottom=-targetFrustum/2;
+  camera.updateProjectionMatrix();renderer.setSize(w,h,false);
+}
+function gameLoop(t){
+  requestAnimationFrame(gameLoop);
+  if(!lastTime)lastTime=t;
+  const dt=Math.min((t-lastTime)/1000,.055);lastTime=t;
+  if(running&&!paused){
+    now+=dt;
+    updatePlayer(dt);updateBears(dt);autoAttack(dt);updateForest(dt);updateDrops(dt);updateParticles(dt);
+    updateStations(dt);updateFloatLabels();updateSnow(dt);
+    if(toastTime<now)UI.toast.classList.remove('show');
+    saveClock+=dt;if(saveClock>4){saveClock=0;save()}
+    updateCamera(dt);
+  }else{
+    // 讓初始畫面仍保有 3D 背景；暫停時則完全凍結遊戲邏輯。
+    if(!paused){now+=dt*.35;updateSnow(dt*.2)}
+    if(hero)updateCamera(dt);
+  }
+  renderer.render(scene,camera);
+}
+function boot(){
+  try{
+    makeWorld();bindControls();updateQuest();updateHUD();syncGate();
+    hero.gateNotify=-10;
+    requestAnimationFrame(gameLoop);
+  }catch(err){
+    console.error('Three.js 遊戲初始化失敗',err);
+    $('loadError').classList.remove('hidden');
+    $('loadError').textContent=`遊戲初始化失敗：${err.message}`;
+    UI.startBtn.disabled=true;
+  }
+}
+boot();
+
+</script>
+</body>
+</html>
