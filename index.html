@@ -620,15 +620,15 @@ function createPlayer(){
   }
   box(body,M.meat,-.40,1.1,0,.35,.65,.55);
   box(body,M.woodLight,-.63,.99,0,.12,.63,.62);
-  // 身後物資會按實際背包容量逐件堆高。
-  const stack=new THREE.Group();stack.position.set(-.49,1.65,-.20);root.add(stack);
+  // 帽頂上方的單一直柱，保持世界座標方向以便跟隨移動晃動。
+  const stack=new THREE.Group();stack.position.set(0,2.38,0);root.add(stack);
   const weaponPivot=new THREE.Group();root.add(weaponPivot);
   const blades=[];for(let i=0;i<2;i++){
     const w=createSickle();weaponPivot.add(w);blades.push(w);
   }
   const scytheTrail=mesh(new THREE.TorusGeometry(2.05,.055,5,50,Math.PI*1.36),new THREE.MeshBasicMaterial({color:0xddffff,transparent:true,opacity:.33,depthWrite:false,side:THREE.DoubleSide}),root,0,.93,0);
   scytheTrail.rotation.x=Math.PI/2;scytheTrail.visible=false;
-  hero={root,body,ring,stack,weaponPivot,blades,scytheTrail,swingTime:0,swingHeading:0,heading:0,vel:new THREE.Vector3(),walkPhase:0,lastHurt:-10,stackT:-1};
+  hero={root,body,ring,stack,weaponPivot,blades,scytheTrail,swingTime:0,swingHeading:0,heading:0,vel:new THREE.Vector3(),walkPhase:0,lastHurt:-10,stackT:-1,stackSway:new THREE.Vector2(),stackVelocity:new THREE.Vector2()};
   rebuildBackpack();
 }
 function createSickle(){
@@ -666,6 +666,7 @@ function rebuildBackpack(){
   const total=state.meat+state.wood;
   if(hero.stackT===`${state.meat},${state.wood}`)return;
   hero.stackT=`${state.meat},${state.wood}`;
+  const previousCount=hero.stack.children.length;
   while(hero.stack.children.length)hero.stack.remove(hero.stack.children[0]);
   const types=[];let a=state.wood,b=state.meat;
   while(types.length<Math.min(19,total)){
@@ -674,8 +675,32 @@ function rebuildBackpack(){
   }
   types.forEach((type,i)=>{
     const item=makeItem(type,type==='wood'?.95:.83);
-    item.position.set((i%2)*.07, i*.25, i%2===0?.02:-.04);
-    item.rotation.y=i*.2;hero.stack.add(item);
+    item.position.set(0,i*.25,0);
+    item.rotation.y=Math.sin(i*2.4)*.12;
+    item.userData.baseScale=item.scale.x;
+    item.userData.popStart=types.length>previousCount&&i===types.length-1?now:-1;
+    if(item.userData.popStart>=0)item.scale.multiplyScalar(.6);
+    hero.stack.add(item);
+  });
+}
+// Integrate in small steps so the damped spring stays stable on slow frames.
+function updateBackpack(dt){
+  const sway=hero.stackSway,velocity=hero.stackVelocity;
+  const targetX=clamp(-hero.vel.x*.025,-.24,.24),targetZ=clamp(-hero.vel.z*.025,-.24,.24);
+  const steps=Math.max(1,Math.ceil(dt/.012)),h=dt/steps;
+  for(let n=0;n<steps;n++){
+    velocity.x+=((targetX-sway.x)*95-velocity.x*9)*h;
+    velocity.y+=((targetZ-sway.y)*95-velocity.y*9)*h;
+    sway.addScaledVector(velocity,h);
+  }
+  hero.stack.position.y=2.38+hero.body.position.y;
+  hero.stack.children.forEach((item,i)=>{
+    const height=i*.25;
+    item.position.set(sway.x*height,height,sway.y*height);
+    item.rotation.x=sway.y;item.rotation.z=-sway.x;
+    const start=item.userData.popStart;
+    const t=start<0?1:clamp((now-start)/.15,0,1);
+    item.scale.setScalar(item.userData.baseScale*(.6+.4*(1-Math.pow(1-t,3))));
   });
 }
 function spawnDrop(type,x,z){
@@ -697,7 +722,7 @@ function updateDrops(dt){
         else if(d.type==='meat')state.meat++;
         else state.coins+=d.value;
         if(d.type==='cash')floatText(d.x,d.z,`+$${d.value}`,'#64e9a1');
-        else floatText(d.x,d.z,'+1',d.type==='meat'?'#ff9e9e':'#baffc8');
+        else pickupText();
         scene.remove(d.mesh);drops.splice(i,1);rebuildBackpack();updateHUD();sound('pickup');
       }
     }
@@ -747,8 +772,32 @@ function floatText(x,z,message,color='#fff'){
   if(pos){el.style.left=`${pos.x}px`;el.style.top=`${pos.y}px`;requestAnimationFrame(()=>{el.style.transform='translate(-50%,-70px) scale(1.15)';el.style.opacity='0'})}
   floatLabels.push({el,time:now+.92});
 }
+function pickupText(){
+  const recent=floatLabels.find(label=>label.pickup&&now-label.started<=.15);
+  if(recent){recent.count++;recent.el.textContent=`+${recent.count}`;return}
+  if(floatLabels.length>24)return;
+  const el=document.createElement('div');el.className='float-label';el.textContent='+1';
+  Object.assign(el.style,{position:'fixed',zIndex:'8',fontFamily:'DM Sans,sans-serif',
+    color:'#36e84d',fontWeight:'900',fontSize:'30px',pointerEvents:'none',
+    webkitTextStroke:'1px #145c2a',paintOrder:'stroke fill',
+    textShadow:'0 2px 0 #fff,1px 0 0 #fff,-1px 0 0 #fff',willChange:'transform,opacity'});
+  document.body.appendChild(el);
+  floatLabels.push({el,pickup:true,count:1,started:now,time:now+.8});
+}
 function toScreen(x,y,z){const v=new THREE.Vector3(x,y,z);v.project(camera);return {x:(v.x*.5+.5)*innerWidth,y:(-v.y*.5+.5)*innerHeight}}
-function updateFloatLabels(){for(let i=floatLabels.length-1;i>=0;i--)if(now>floatLabels[i].time){floatLabels[i].el.remove();floatLabels.splice(i,1)}}
+function updateFloatLabels(){
+  for(let i=floatLabels.length-1;i>=0;i--){
+    const label=floatLabels[i];
+    if(now>=label.time){label.el.remove();floatLabels.splice(i,1);continue}
+    if(label.pickup){
+      const t=clamp((now-label.started)/.8,0,1);
+      const pos=toScreen(hero.root.position.x,2.85+hero.body.position.y,hero.root.position.z);
+      label.el.style.left=`${pos.x}px`;label.el.style.top=`${pos.y}px`;
+      label.el.style.transform=`translate(-50%,${-28-60*t}px)`;
+      label.el.style.opacity=String(1-t*t);
+    }
+  }
+}
 function capacity(){return 15+state.upgrades.capacity*5}
 function moveSpeed(){return 4.9*(1+state.upgrades.speed*.15)}
 function attackPower(){return 1+state.upgrades.power}
@@ -1032,10 +1081,10 @@ function gameLoop(t){
   if(running&&!paused){
     now+=dt;
     updatePlayer(dt);updateBears(dt);autoAttack(dt);updateForest(dt);updateDrops(dt);updateParticles(dt);updateCombatEffects(dt);
-    updateStations(dt);updateFloatLabels();updateSnow(dt);
+    updateStations(dt);updateBackpack(dt);updateSnow(dt);
     if(toastTime<now)UI.toast.classList.remove('show');
     saveClock+=dt;if(saveClock>4){saveClock=0;save()}
-    updateCamera(dt);
+    updateCamera(dt);updateFloatLabels();
   }else{
     // 讓初始畫面仍保有 3D 背景；暫停時則完全凍結遊戲邏輯。
     if(!paused){now+=dt*.35;updateSnow(dt*.2)}

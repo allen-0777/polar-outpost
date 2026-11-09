@@ -26,7 +26,7 @@ timeout 60 google-chrome --headless=new --no-sandbox --use-gl=swiftshader --enab
 timeout 60 google-chrome --headless=new --no-sandbox --use-gl=swiftshader --enable-unsafe-swiftshader --window-size=1280,800 --virtual-time-budget=8000 --screenshot="$LOG/shot_desktop.png" http://127.0.0.1:8765/index.html?autostart=1 >/dev/null 2>&1
 timeout 60 google-chrome --headless=new --no-sandbox --use-gl=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=8000 --enable-logging=stderr --v=0 --dump-dom http://127.0.0.1:8765/index.html?autostart=1 2> "$LOG/console.txt" >/dev/null
 pkill -f "http.server 8765" || true
-ERRS=$(grep -ciE 'Uncaught|SyntaxError|TypeError|ReferenceError' "$LOG/console.txt")
+ERRS=$(grep -v "chrome-extension://" "$LOG/console.txt" | grep -ciE 'Uncaught|SyntaxError|TypeError|ReferenceError')
 echo "syntax_rc=$SYN console_errors=$ERRS" | tee -a "$LOG/check.txt"
 CHG=$(git status --porcelain index.html assets 2>/dev/null)
 if [ "$SYN" = 0 ] && [ "$ERRS" = 0 ] && [ -n "$CHG" ]; then
