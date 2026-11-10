@@ -24,3 +24,6 @@
 - 本專案使用 Three.js r170 ES module，不須 Node.js、npm、Vite、伺服器或資料庫。
 - 若網站顯示 Three.js 載入失敗，請檢查 CDN 是否受網路限制。
 - 本作品參考玩家錄影中的雪地狩獵／經營玩法製作，為非官方原型。
+
+## Credits
+3D 模型：Kenney (www.kenney.nl)，CC0 授權，詳見 assets/models/LICENSES.md。
