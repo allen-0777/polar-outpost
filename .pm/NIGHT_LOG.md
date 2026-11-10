@@ -6,3 +6,9 @@
 ## 2026-11-10 白天大改版（upgrade）
 - 換成 Kenney CC0 3D 模型（主角/客人 Mini Characters、北極熊 Cube Pets、藍色雪松/石頭/圍欄 Holiday Kit、攤位道具 Survival Kit），模型載入失敗會退回舊幾何模型。
 - 鏡頭拉遠約 1.8 倍、密林 + 狩獵空地、精簡 UI、提高飽和度。3 輪 Codex，puppeteer 實測 29/29 模型載入、0 錯誤、自動戰鬥與疊物正常。
+
+## 2026-11-10 營地擴張（camp）
+- Codex 第 1 輪：E1 顧客循環＋E2 擴張鏈（EXPANSIONS、程序擴建、除錯參數 ?fresh=1 / ?debug_coins / ?debug=1）。
+- Codex 第 2 輪：解鎖框重新配置、畫面外箭頭、北側分支固定種子、E3 自衛隊（警衛哨、招募、跟隨/獵熊/施工升起）。
+- PM 手動修正：地面 PlaneGeometry 2000000→600（條紋破圖）、營火火焰改圓錐並修正縮放、第二肉攤解鎖框移到路面（原本卡圍欄付不完）、施工站位、__po 加 bears/stalls/drops。
+- 驗證：node --check OK；無頭 Chrome 0 錯誤；Puppeteer 錄影（狩獵→上架→顧客購買→收錢→營火→警衛哨→招募→第二肉攤施工）。

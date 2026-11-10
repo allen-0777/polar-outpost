@@ -157,7 +157,12 @@ const UI = {
 };
 const KEY='polar-outpost-threejs-v1';
 const initial=()=>({coins:0,wood:0,meat:0,kills:0,cut:0,sales:0,totalEarned:0,questIndex:0,gateOpen:false,upgrades:{speed:0,power:0,capacity:0,blades:0}});
+const params=new URLSearchParams(location.search);if(params.get('fresh')==='1')localStorage.removeItem(KEY);
 let state=loadSave();
+state.unlocked=Array.isArray(state.unlocked)?state.unlocked:[];if(state.gateOpen&&!state.unlocked.includes('gate'))state.unlocked.push('gate');
+state.squad=Math.min(8,Math.max(0,Math.floor(Number(state.squad)||0)));
+state.expansionPaid=state.expansionPaid||{};state.procCount=state.procCount||0;state.cashPiles=state.cashPiles||{};
+if(params.has('debug_coins'))state.coins+=Math.max(0,Number(params.get('debug_coins'))||0);
 function loadSave(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&typeof s==='object')return {...initial(),...s,upgrades:{...initial().upgrades,...(s.upgrades||{})}}}catch{}return initial()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{}}
 const quests=[
@@ -270,7 +275,7 @@ function makeWorld(){
   resize();window.addEventListener('resize',resize);
 }
 function createGround(){
-  const ground=mesh(new THREE.PlaneGeometry(200,105),M.snow,scene,0,-.1,-2);
+  const ground=mesh(new THREE.PlaneGeometry(600,600),M.snow,scene,0,-.1,-2);
   ground.rotation.x=-Math.PI/2;ground.receiveShadow=false;
   const iceMats=[new THREE.MeshBasicMaterial({color:0xb0d6ed,transparent:true,opacity:.55,depthWrite:false,side:THREE.DoubleSide}),new THREE.MeshBasicMaterial({color:0xc0e2f4,transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide}),new THREE.MeshBasicMaterial({color:0xf6ffff,transparent:true,opacity:.65,depthWrite:false,side:THREE.DoubleSide})];
   // 稍微不規則的冰河色塊，重現影片中道路下方的淡藍色雪地。
@@ -333,7 +338,7 @@ function createRoad(){
     for(const xx of [-.48,.48])box(crate,M.woodLight,s*xx,s*.40,0,.06,s*.72,s*.95);
   }
 }
-function stallOpening(x){return [-17,-5,8,19].some(px=>Math.abs(x-px)<2.35)||Math.abs(x-26)<3.5}
+function stallOpening(x){return [-29,-17,-5,8,19].some(px=>Math.abs(x-px)<2.35)||Math.abs(x-26)<3.5}
 function drawDashedRect(parent,x,y,z,w,d,color,thickness=.045){
   const m=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.86});
   const n=5;
@@ -383,6 +388,7 @@ function createForest(){
   }
 }
 function drawPineInstance(t,meshes,trunks,variants,dummy){
+  if(t.customRoot){t.customRoot.visible=t.active;t.customRoot.scale.setScalar(t.occlusion);return}
   if(t.batch){
     dummy.position.set(t.x,0,t.z);dummy.rotation.set(0,t.rotation,t.hit?Math.sin(t.hit*32)*.04:0);dummy.scale.set(t.active?t.s*1.25*t.occlusion:0,t.active?t.s*.85*t.occlusion:0,t.active?t.s*1.25*t.occlusion:0);dummy.updateMatrix();
     for(const part of t.batch.parts){part.mesh.setMatrixAt(t.batch.index,new THREE.Matrix4().multiplyMatrices(dummy.matrix,part.base));part.mesh.instanceMatrix.needsUpdate=true}return;
@@ -456,7 +462,7 @@ function updateBears(dt){
       b.root.scale.setScalar(b.visualScale*Math.max(0,1-(now-b.deathAt)/.24));
       if(now>=b.deathAt+.24)b.root.visible=false;
       if(b.pendingLoot&&now>=b.deathAt+.5){
-        for(const d of b.pendingLoot)spawnDrop(d.type,d.x,d.z);
+        for(const d of b.pendingLoot){spawnDrop(d.type,d.x,d.z);if(b.squadLoot)drops.at(-1).magnet=true}b.squadLoot=false;
         b.pendingLoot=null;
       }
     }
@@ -508,10 +514,9 @@ function hitBear(b,damage){
     updateQuest();save();
   }
 }
-function createStalls(){
-  const config=[{x:-17,type:'meat'},{x:-5,type:'wood'},{x:8,type:'meat'},{x:19,type:'wood'}];
+function createStalls(config=[{x:-17,type:'meat'},{x:-5,type:'wood'},{x:8,type:'meat'},{x:19,type:'wood'}]){
   for(const c of config){
-    const root=new THREE.Group();root.position.set(c.x,0,3.5);scene.add(root);
+    const root=new THREE.Group();root.position.set(c.x,0,c.z??3.5);scene.add(root);
     shadowDisc(root,0,.34,1.2);
     // 長凳、桌面、腿與售貨籃。
     box(root,M.woodLight,0,.61,0,2.35,.19,.87);
@@ -520,11 +525,11 @@ function createStalls(){
     for(let j=0;j<3;j++)box(root,M.woodLight,-.66+j*.66,.81,-.42,.56,.14,.09);
     const cargo=new THREE.Group();cargo.position.set(0,.89,0);root.add(cargo);
     const pad=mesh(new THREE.CylinderGeometry(1.12,1.26,.065,20),M.green,root,0,.08,-1.05,1,.30,.64);pad.material=mat(0x4be8a3,.5,{transparent:true,opacity:.58,emissive:0x1ac27e,emissiveIntensity:.2});
-    const station={x:c.x,z:2.15,type:c.type,root,stock:0,cargo,pad,sprite:null,customers:[],serviceT:rand(1.8,3.2),flash:0,depositT:0};
+    const station={id:c.id||String(c.x),x:c.x,z:(c.z??3.5)-1.35,type:c.type,root,stock:0,cargo,pad,sprite:null,customers:[],serviceT:rand(1.8,3.2),flash:0,depositT:0};
     station.sprite=createStationSign(c.type);station.sprite.position.set(0,2.72,.0);root.add(station.sprite);
-    stalls.push(station);
+    station.cash=new THREE.Group();station.cash.position.set(1.65,.15,0);root.add(station.cash);station.cashValue=state.cashPiles[station.id]||0;station.departing=[];stalls.push(station);refreshCash(station);
     for(let j=0;j<6;j++){
-      const nc=createCustomer(c.x+Math.sin(j*.85)*1.0,5.8+j*1.5,j);scene.add(nc.root);
+      const nc=createCustomer(c.x,(c.z??3.5)+2.3+j*1.5,j);scene.add(nc.root);
       station.customers.push(nc);
     }
     rebuildStock(station);
@@ -572,11 +577,11 @@ function drawStationSign(sprite,number){
 function round(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
 function rebuildStock(st){
   while(st.cargo.children.length){const o=st.cargo.children[0];st.cargo.remove(o)}
-  const count=Math.min(Math.max(st.stock,3),12);
+  const count=Math.min(st.stock,12);
   for(let i=0;i<count;i++){
     const item=makeItem(st.type,.37);
     item.position.set(-.59+(i%3)*.58,Math.floor(i/3)*.19,-.08);
-    item.rotation.y=i*2.35;st.cargo.add(item);
+    item.rotation.y=0;st.cargo.add(item);
   }
   drawStationSign(st.sprite,st.stock);
 }
@@ -605,10 +610,10 @@ function createGate(){
 }
 function syncGate(){
   if(!gate)return;
-  gate.userData.frame.visible=gate.userData.icon.visible=!state.gateOpen;
+  gate.userData.frame.visible=gate.userData.icon.visible=false;
   gate.userData.bar.visible=!state.gateOpen;
-  gate.userData.pad.visible=!state.gateOpen;
-  gate.userData.sprite.visible=!state.gateOpen;
+  gate.userData.pad.visible=false;
+  gate.userData.sprite.visible=false;
   UI.region.textContent=state.gateOpen?'霜雪前哨 · 東側森林已解鎖':'霜雪前哨 · 初始森林';
 }
 function createCabin(){
@@ -772,7 +777,7 @@ function updateDrops(dt){
     if(d.y<.26){d.y=.26;if(d.vY<-.25)d.vY=Math.abs(d.vY)*.3;else d.vY=0}
     d.mesh.position.y=d.y+Math.sin(now*3+d.phase)*.065;d.mesh.rotation.y+=dt*1.05;
     const dx=hero.root.position.x-d.x,dz=hero.root.position.z-d.z,dist=Math.hypot(dx,dz);
-    if(dist<2.65&&d.age>.34){
+    if((dist<2.65||d.magnet)&&d.age>.34){
       if(d.type!=='cash'&&state.meat+state.wood>=capacity())continue;
       const rate=dist<1.1?16:6;d.x+=dx/Math.max(dist,.01)*rate*dt;d.z+=dz/Math.max(dist,.01)*rate*dt;
       d.mesh.position.x=d.x;d.mesh.position.z=d.z;
@@ -859,16 +864,17 @@ function updateFloatLabels(){
 }
 function capacity(){return 15+state.upgrades.capacity*5}
 function moveSpeed(){return 6.6*(1+state.upgrades.speed*.15)}
-function attackPower(){return 1+state.upgrades.power}
+function attackPower(){return 1+state.upgrades.power+(state.unlocked.includes('forge')?1:0)}
 function upgradeCost(k){return upgrades[k].base+upgrades[k].step*state.upgrades[k]}
 function addCoins(num){state.coins+=num;state.totalEarned+=num;updateHUD();updateQuest();}
 function updateStations(dt){
   let nearStation=null;
   for(const st of stalls){
+    if(st.constructing)continue;
     const d=Math.hypot(hero.root.position.x-st.x,hero.root.position.z-st.z);
     const glowing=d<2.3;st.pad.material.emissiveIntensity=glowing?.9:.2;
     if(glowing)nearStation=st;
-    st.flash=Math.max(0,st.flash-dt);
+    st.flash=Math.max(0,st.flash-dt);st.collectT=Math.max(0,(st.collectT||0)-dt);
     st.depositT-=dt;
     if(glowing&&st.depositT<=0){
       st.depositT=.17;
@@ -876,76 +882,86 @@ function updateStations(dt){
         spawnParticles(st.x,3,[0x56e795,0xc6fbe0],2,.35);sound('deposit');updateHUD();
       }
     }
-    st.serviceT-=dt;
+    const front=st.customers[0];
+    const ready=front&&front.root.position.distanceTo(new THREE.Vector3(st.x,0,st.root.position.z+1.5))<.18;
+    if(ready&&st.stock>0)st.serviceT-=dt;else st.serviceT=.75;
     if(st.stock>0&&st.serviceT<=0){
-      st.serviceT=rand(1.15,1.9);st.stock--;rebuildStock(st);state.sales++;
-      const earned=st.type==='meat'?15:11;
-      addCoins(earned);floatText(st.x,3.5,`+$${earned}`,'#ffe58d');sound('sell');
-      spawnParticles(st.x,4,[0x72e99f,0xffecaa],5,.6);
-      const first=st.customers.shift();st.customers.push(first);
-      for(let j=0;j<st.customers.length;j++){
-        const c=st.customers[j];c.x=st.x+Math.sin(j*.85)*1.0;c.z=5.8+j*1.50;
-      }
-      first.root.position.set(st.x+rand(-.12,.12),0,5.8+(st.customers.length+1)*1.5);
-      updateQuest();save();
+      st.serviceT=.75;st.stock--;rebuildStock(st);state.sales++;
+      const c=st.customers.shift();c.exit=0;c.x=st.x+4;c.z=st.root.position.z+13;st.departing.push(c);const replacement=customerPool.pop()||createCustomer(st.x,st.root.position.z+16,0);replacement.root.visible=true;replacement.root.position.set(st.x,0,st.root.position.z+16);scene.add(replacement.root);st.customers.push(replacement);
+      const item=makeItem(st.type,.42);scene.add(item);marketFlights.push({item,start:new THREE.Vector3(st.x,1.5,st.root.position.z),target:()=>c.root.position.clone().add(new THREE.Vector3(0,1.7,0)),age:0,done:()=>{scene.remove(item);c.root.add(item);item.position.set(0,1.7,0);item.userData.purchase=true}});
+      st.cashValue+=st.type==='meat'?15:11;state.cashPiles[st.id]=st.cashValue;const payment=coinSprite();marketFlights.push({item:payment,start:c.root.position.clone().add(new THREE.Vector3(0,1.2,0)),target:()=>new THREE.Vector3(st.x+1.65,.3,st.root.position.z),age:0,done:()=>{scene.remove(payment);payment.material.dispose();refreshCash(st)}});sound('sell');save();
     }
-    for(const c of st.customers){
-      c.root.position.x=THREE.MathUtils.damp(c.root.position.x,c.x,4,dt);
-      c.root.position.z=THREE.MathUtils.damp(c.root.position.z,c.z,3,dt);
-      c.root.position.y=Math.sin(now*2.5+c.phase)*.017;
+    if(st.cashValue&&!st.collectT&&Math.hypot(hero.root.position.x-st.x-1.65,hero.root.position.z-st.root.position.z)<1.6){
+      st.collectT=.065;const amount=Math.min(3,st.cashValue);st.cashValue-=amount;state.cashPiles[st.id]=st.cashValue;refreshCash(st);
+      const item=coinSprite();marketFlights.push({item,start:new THREE.Vector3(st.x+1.65,.8,st.root.position.z),target:()=>hero.root.position.clone().add(new THREE.Vector3(0,1.5,0)),age:0,done:()=>{scene.remove(item);item.material.dispose();addCoins(amount);floatText(hero.root.position.x,hero.root.position.z,`+$${amount}`,'#ffe58d');save()}});
     }
+    st.customers.forEach((c,j)=>{c.x=st.x;c.z=st.root.position.z+1.5+j*1.5;walkCustomer(c,dt)});
+    for(let i=st.departing.length-1;i>=0;i--){const c=st.departing[i];walkCustomer(c,dt);c.exit+=dt;if(c.exit>4.5){st.departing.splice(i,1);for(const o of [...c.root.children])if(o.userData.purchase)c.root.remove(o);c.root.visible=false;customerPool.push(c)}}
   }
   let prompt='';
   if(nearStation){
     const type=nearStation.type==='meat'?'生肉':'木材';
     prompt=state[nearStation.type]>0?`正在自動上架${type}…`:`${type}攤位｜庫存 ${nearStation.stock}｜等待收集資源`;
   }
-  const gd=Math.hypot(hero.root.position.x-22.2,hero.root.position.z-1.3);
-  if(!state.gateOpen&&gd<3.3){
-    const remaining=180-gatePaid;
-    prompt=state.coins>=Math.min(10,remaining)?`站進白框支付金幣 · 尚需 $${remaining}`:`新區域尚需 $${remaining}`;
-  }
-  const inGateFrame=Math.abs(hero.root.position.x-22.2)<=1.25&&Math.abs(hero.root.position.z-1.3)<=1.25;
-  if(!state.gateOpen&&inGateFrame&&gatePaid<180){
-    gatePayClock+=dt;
-    if(gatePayClock>=.06&&state.coins>=Math.min(10,180-gatePaid)){
-      gatePayClock%=.06;const amount=Math.min(10,180-gatePaid);state.coins-=amount;gatePaid+=amount;
-      const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:coinTexture,transparent:true,depthWrite:false,toneMapped:false}));
-      sprite.scale.setScalar(.5);const start=hero.root.position.clone();start.y=1.65;sprite.position.copy(start);scene.add(sprite);
-      gateFlights.push({sprite,start,age:0});
-      const old=gate.userData.sprite;const label=createLabelSprite('解鎖新雪林',String(180-gatePaid),0xffd07a);
-      label.position.copy(old.position);label.scale.copy(old.scale);scene.remove(old);old.material.map.dispose();old.material.dispose();scene.add(label);gate.userData.sprite=label;
-      sound('deposit');updateHUD();
-    }
-  }else gatePayClock=0;
-
-  if(!nearStation&&gd>=3.3&&state.meat+state.wood>=capacity())prompt='背包已滿！回到道路旁攤位上架商品';
   UI.worldPrompt.classList.toggle('hidden',!prompt);UI.promptText.textContent=prompt;
 }
-function updateGateEffects(dt){
-  for(let i=gateFlights.length-1;i>=0;i--){
-    const f=gateFlights[i];f.age+=dt;const t=Math.min(1,f.age/.42);
-    f.sprite.position.lerpVectors(f.start,new THREE.Vector3(22.2,.4,1.3),t);f.sprite.position.y+=Math.sin(t*Math.PI)*2;
-    if(t===1){scene.remove(f.sprite);f.sprite.material.dispose();gateFlights.splice(i,1)}
-  }
-  if(!state.gateOpen&&gatePaid===180&&gateFlights.length===0){
-    state.gateOpen=true;syncGate();gatePopAge=0;gate.scale.setScalar(.001);
-    const shape=new THREE.Shape();shape.moveTo(-.13,0);shape.lineTo(.13,0);shape.lineTo(0,1);shape.closePath();
-    const geometry=new THREE.ShapeGeometry(shape);
-    for(let i=0;i<12;i++){
-      const angle=i*Math.PI*2/12;const sprite=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({color:0xffd83e,side:THREE.DoubleSide,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}));
-      sprite.quaternion.copy(camera.quaternion);sprite.rotateZ(-angle);scene.add(sprite);gateStars.push({sprite,angle,age:0});
-    }
-    spawnParticles(26.5,0,[0xfbe89c,0xa4ffec,0xffffff],55,2.6);
-    showToast('新區域已解鎖！探索東側雪林');sound('unlock');updateQuest();save();
-  }
-  if(gatePopAge>=0){gatePopAge+=dt;const t=Math.min(1,gatePopAge/.4),u=t-1;gate.scale.setScalar(1+2.70158*u*u*u+1.70158*u*u);if(t===1)gatePopAge=-1}
-  for(let i=gateStars.length-1;i>=0;i--){
-    const f=gateStars[i];f.age+=dt;const t=Math.min(1,f.age/.65),r=.5+3*t;
-    f.sprite.position.set(26.5+Math.sin(f.angle)*r,1.6+Math.cos(f.angle)*r,0);f.sprite.material.opacity=1-t;f.sprite.scale.setScalar(1-t*.5);
-    if(t===1){scene.remove(f.sprite);f.sprite.material.dispose();gateStars.splice(i,1);if(!gateStars.length)f.sprite.geometry.dispose()}
-  }
+function updateGateEffects(dt){updateExpansions(dt)}
+const marketFlights=[],builtExpansions=[],campfires=[],customerPool=[];
+let unlockZone=null,construction=null,recruitPad=null,recruitClock=0;
+const squad=[];
+const zoneArrow=document.createElement('div');zoneArrow.style.cssText='position:fixed;z-index:20;pointer-events:none;color:#ffe344;background:#302d26dd;border:2px solid #ffe344;border-radius:14px;padding:6px 10px;font:bold 16px sans-serif;display:none';document.body.append(zoneArrow);
+const zoneProjection=new THREE.Vector3();
+function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}}
+function updateZoneArrow(){if(!unlockZone){zoneArrow.style.display='none';return}const e=unlockZone.e;zoneProjection.set(e.x,.2,e.z).project(camera);const x=zoneProjection.x,y=-zoneProjection.y;if(Math.abs(x)<.88&&Math.abs(y)<.84&&Math.abs(zoneProjection.z)<1){zoneArrow.style.display='none';return}const k=Math.min((innerWidth/2-70)/Math.max(.01,Math.abs(x*innerWidth/2)),(innerHeight/2-65)/Math.max(.01,Math.abs(y*innerHeight/2)));zoneArrow.style.display='block';zoneArrow.style.left=(innerWidth/2+x*innerWidth/2*k)+'px';zoneArrow.style.top=(innerHeight/2+y*innerHeight/2*k)+'px';zoneArrow.style.transform='translate(-50%,-50%)';zoneArrow.textContent=['→','↘','↓','↙','←','↖','↑','↗'][(Math.round(Math.atan2(y,x)/(Math.PI/4))+8)%8]+' $'+Math.max(0,e.cost-(state.expansionPaid[e.id]||0))}
+
+function coinSprite(){const item=new THREE.Sprite(new THREE.SpriteMaterial({map:coinTexture,transparent:true,depthWrite:false}));item.scale.setScalar(.5);scene.add(item);return item}
+function refreshCash(st){while(st.cash.children.length){const c=st.cash.children[0];st.cash.remove(c);c.material.dispose()}for(let i=0;i<Math.min(24,Math.ceil(st.cashValue/3));i++){const c=coinSprite();st.cash.add(c);c.position.set((i%3)*.2,Math.floor(i/3)*.12,0);c.scale.setScalar(.38)}}
+function walkCustomer(c,dt){const dx=c.x-c.root.position.x,dz=c.z-c.root.position.z,d=Math.hypot(dx,dz),step=Math.min(d,dt*2.8);if(d>.04){c.root.position.x+=dx/d*step;c.root.position.z+=dz/d*step;c.root.rotation.y=Math.atan2(-dz,dx);c.root.position.y=Math.abs(Math.sin(now*10+c.phase))*.09}else c.root.position.y=0}
+function buildCamp(root,kind){
+ const put=(key,h,x=0,z=0)=>placeModel(key,h,root,x,z);
+ if(kind==='guardpost'){put('tent',2.5);put('fortified',1.2,-2,-1);put('fortified',1.2,2,-1);put('signpost',1.6,-2,1);box(root,M.wood,2,2,0,.12,4,.12);box(root,mat(0xe84944),2.6,3.5,0,1.2,.7,.08);return}
+ if(kind==='stall'){createStalls([{id:root.userData.id,x:root.position.x,z:root.position.z,type:'meat'}]);root.userData.station=stalls.at(-1);placeModel('workbench',1.35,stalls.at(-1).root);return}
+ if(kind==='wood'){createStalls([{id:root.userData.id,x:root.position.x,z:root.position.z,type:'wood'}]);root.userData.station=stalls.at(-1);placeModel('workbench',1.35,stalls.at(-1).root);for(let i=0;i<6;i++)put('log',.65,-2-i%2,Math.floor(i/2)*.5);return}
+ if(kind==='fire'){
+  if(!put('campfire',1.1))for(let i=0;i<5;i++)box(root,M.wood,Math.sin(i)*.6,.2,Math.cos(i)*.6,.3,.3,1);
+  const flame=mesh(new THREE.ConeGeometry(.34,.95,7),mat(0xffa126,.4,{emissive:0xff6b00,emissiveIntensity:1.6}),root,0,.75,0);const flameCore=mesh(new THREE.ConeGeometry(.18,.55,6),mat(0xffe27a,.4,{emissive:0xffd23a,emissiveIntensity:1.8}),flame,0,-.12,0);const lamp=new THREE.PointLight(0xff9c39,4,8);lamp.position.y=1.5;root.add(lamp);campfires.push({root,flame,lamp,fuel:0,t:0});
+ }else if(kind==='forge'){if(!put('anvil',1.8))box(root,M.dark,0,.8,0,2,1.6,1.3)}
+ else if(kind==='tent'){for(let i=0;i<3;i++){if(!put('tent',2.4,i*3-3,0)){const roof=mesh(new THREE.ConeGeometry(1.7,2.5,4),M.woodLight,root,i*3-3,1.2,0);roof.rotation.y=Math.PI/4}const c=createCustomer(root.position.x+i*2,root.position.z+3,i);scene.add(c.root);root.userData.residents??=[];root.userData.residents.push(c)}}
+ else if(kind==='north'){const seeded=mulberry32(1234);box(root,M.road,0,.05,-13,5,.15,30);for(let i=0;i<14;i++){const x=(i%2?1:-1)*(5+seeded()*5),z=-i*2;const pine=new THREE.Group();pine.position.set(x,0,z);root.add(pine);if(!placeModel('treeA',3.4,pine))mesh(new THREE.ConeGeometry(1,3,6),M.green,pine,0,1.5,0);trees.push({x:root.position.x+x,z:root.position.z+z,s:1,cuttable:true,occlusion:1,rotation:0,hp:2,active:true,respawn:0,hit:0,customRoot:pine})}createBear(root.position.x-7,root.position.z-15);createBear(root.position.x+7,root.position.z-23)}
+ else for(let i=0;i<5;i++)if(!put('box',.8,(i%3)-1,Math.floor(i/3)))box(root,M.woodLight,(i%3)-1,.5,Math.floor(i/3),.8,1,.8);
 }
+const EXPANSIONS=[
+ ['fire','營火盆',40,-11,7.5,'fire'],['guardpost','警衛哨',90,1.5,8,'guardpost'],['meat2','第二個肉攤',120,-29,1.6,'stall',3.5],['gate','東側木門 / 新雪林',180,22.2,1.3,'gate'],['forge','鍛造台',200,13.5,8,'forge'],['lumber','木材場',260,-29,12,'wood'],['tents','帳篷區',320,-12,17,'tent'],['north','北側新路分支',420,16,-6,'north']
+].map(([id,name,cost,x,z,kind,bz])=>({id,name,cost,x,z,bz,w:3,d:3,build:root=>buildCamp(root,kind),effect:()=>{if(id==='gate'){state.gateOpen=true;syncGate()}if(id==='forge')showToast('鍛造完成！攻擊力 +1')}}));
+function proceduralCells(){const cells=[];for(let z=16;z<=40;z+=8)for(let x=-40;x<=40;x+=8){if([-29,-17,-5,8,19].some(q=>Math.abs(x-q)<=2))continue;if(EXPANSIONS.slice(0,8).some(e=>Math.abs(e.x-x)<7&&Math.abs(e.z-z)<6))continue;cells.push({x,z})}return cells}
+function ensureProcedural(){const cells=proceduralCells(),saved=state.unlocked.reduce((n,id)=>Math.max(n,/^proc\d+$/.test(id)?Number(id.slice(4)):0),0),count=Math.min(cells.length,Math.max(state.procCount,saved)+1);while(EXPANSIONS.length<8+count){const n=EXPANSIONS.length-7,cell=cells[n-1],kind=['crate','fire','crate','fire'][(n-1)%4];EXPANSIONS.push({id:'proc'+n,name:'擴建 '+n,cost:Math.round(EXPANSIONS.at(-1).cost*1.35/10)*10,...cell,w:3,d:3,build:root=>buildCamp(root,kind),effect:()=>{}})}}
+function constructExpansion(e,animate){const root=new THREE.Group();root.position.set(e.x,0,e.bz??e.z);root.userData.id=e.id;scene.add(root);if(e.id!=='gate')e.build(root);else root.add(new THREE.Group());builtExpansions.push({root,age:animate?0:1});if(animate){root.scale.setScalar(.001);spawnParticles(e.x,e.z,[0xffdb43,0xfff1a2],35,2.6);for(let i=0;i<9;i++){const shape=new THREE.Shape();for(let j=0;j<10;j++){const a=j*Math.PI/5,r=j%2?.12:.32;const x=Math.sin(a)*r,y=Math.cos(a)*r;if(j===0)shape.moveTo(x,y);else shape.lineTo(x,y)}shape.closePath();const star=new THREE.Mesh(new THREE.ShapeGeometry(shape),new THREE.MeshBasicMaterial({color:0xffdd39,side:THREE.DoubleSide,depthTest:false}));star.position.set(Math.sin(i*7)*2,1+Math.cos(i*7),Math.cos(i*7)*2);star.quaternion.copy(camera.quaternion);root.add(star);star.userData.star=true}}}
+function nextZone(){if(unlockZone){scene.remove(unlockZone.root);unlockZone.root.traverse(o=>{if(o.isSprite){o.material.map!==coinTexture&&o.material.map?.dispose();o.material.dispose()}})}ensureProcedural();const e=EXPANSIONS.find(e=>!state.unlocked.includes(e.id));if(!e){unlockZone=null;return}const root=new THREE.Group();scene.add(root);drawDashedRect(root,e.x,.16,e.z,e.w,e.d,0xffffff,.14);const label=createLabelSprite(e.name,String(e.cost-(state.expansionPaid[e.id]||0)),0xffd07a);label.position.set(e.x,2.7,e.z);label.scale.set(3.5,1.35,1);root.add(label);const icon=coinSprite();root.add(icon);icon.position.set(e.x,3.8,e.z);unlockZone={e,root,label,t:0,pending:0}}
+function initExpansions(){for(const key of ['frame','icon','pad','sprite'])gate.userData[key].visible=false;ensureProcedural();for(const e of EXPANSIONS)if(state.unlocked.includes(e.id))constructExpansion(e,false);nextZone();if(state.unlocked.includes('guardpost'))createRecruitPad();const restored=state.squad;for(let i=0;i<restored;i++)recruit(true,true)}
+function updateExpansions(dt){
+ for(let i=marketFlights.length-1;i>=0;i--){const f=marketFlights[i];f.age+=dt;const t=Math.min(1,f.age/.42);f.item.position.lerpVectors(f.start,f.target(),t);f.item.position.y+=Math.sin(t*Math.PI)*1.8;if(t===1){f.done();marketFlights.splice(i,1)}}
+ for(const b of builtExpansions){if(b.age<1){b.age=Math.min(1,b.age+dt*2);const u=b.age-1;const scale=1+2.70158*u*u*u+1.70158*u*u;b.root.scale.setScalar(scale);b.root.userData.station?.root.scale.setScalar(scale);if(b.age===1)for(const c of [...b.root.children])if(c.userData.star){b.root.remove(c);c.geometry.dispose();c.material.dispose()}}for(const c of b.root.userData.residents||[]){if(Math.hypot(c.x-c.root.position.x,c.z-c.root.position.z)<.2){c.x=b.root.position.x+rand(-4,4);c.z=b.root.position.z+rand(2,5)}walkCustomer(c,dt)}}
+ for(const f of campfires){f.t-=dt;if(f.t<0&&state.wood>0&&hero.root.position.distanceTo(f.root.position)<2.8){state.wood--;f.fuel=Math.min(4,f.fuel+1);f.t=.7;rebuildBackpack();updateHUD();const item=makeItem('wood',.35);scene.add(item);marketFlights.push({item,start:hero.root.position.clone().add(new THREE.Vector3(0,2,0)),target:()=>f.root.position.clone(),age:0,done:()=>scene.remove(item)});save()}f.fuel=Math.max(0,f.fuel-dt*.04);{const k=.7+f.fuel*.14;f.flame.scale.set(k*(1+Math.sin(now*11)*.06),k*(1+Math.sin(now*13+1)*.12),k*(1+Math.sin(now*11)*.06))};f.lamp.intensity=4+f.fuel}
+ if(!unlockZone)return;const u=unlockZone,e=u.e;u.t+=dt;const paid=state.expansionPaid[e.id]||0;
+ if(Math.abs(hero.root.position.x-e.x)<e.w/2&&Math.abs(hero.root.position.z-e.z)<e.d/2&&paid<e.cost&&state.coins>0&&u.t>.065){u.t=0;const amount=Math.min(5,state.coins,e.cost-paid);state.coins-=amount;state.expansionPaid[e.id]=paid+amount;const item=coinSprite();u.pending++;marketFlights.push({item,start:hero.root.position.clone().add(new THREE.Vector3(0,1.7,0)),target:()=>new THREE.Vector3(e.x,.3,e.z),age:0,done:()=>{scene.remove(item);item.material.dispose();u.pending--}});const old=u.label;u.label=createLabelSprite(e.name,String(e.cost-paid-amount),0xffd07a);u.label.position.copy(old.position);u.label.scale.copy(old.scale);u.root.remove(old);old.material.map.dispose();old.material.dispose();u.root.add(u.label);sound('deposit');updateHUD();save()}
+ if((state.expansionPaid[e.id]||0)>=e.cost&&!u.pending&&!construction)startConstruction(e);updateConstruction(dt);
+}
+
+function createRecruitPad(){if(recruitPad)return;const root=new THREE.Group();root.position.set(1.5,0,11);scene.add(root);drawDashedRect(root,0,.18,0,2.8,2.4,0xffffff,.14);const label=createLabelSprite('🛡 招募自衛隊','',0xffffff);label.position.set(0,2.5,0);label.scale.set(4,1.4,1);root.add(label);recruitPad={root,label,key:''}}
+function recruit(free=false,restore=false){if(squad.length>=8)return false;const cost=30+20*squad.length;if(!free&&(!recruitPad||state.coins<cost||state.meat<2))return false;
+ let x=1.5,z=10;let refugee=null;if(!restore){const st=stalls.find(st=>st.customers.length);if(st){refugee=st.customers.shift();x=refugee.root.position.x;z=refugee.root.position.z;refugee.root.visible=false;const replacement=customerPool.pop()||createCustomer(st.x,st.root.position.z+16,0);customerPool.push(refugee);replacement.root.visible=true;replacement.root.position.set(st.x,0,st.root.position.z+16);st.customers.push(replacement)}}
+ if(!free){state.coins-=cost;state.meat-=2;for(let i=0;i<2;i++){const item=makeItem('meat',.45);scene.add(item);marketFlights.push({item,start:hero.root.position.clone().add(new THREE.Vector3(0,2.5+i*.3,0)),target:()=>recruitPad.root.position,age:0,done:()=>scene.remove(item)})}rebuildBackpack();updateHUD()}
+ const root=new THREE.Group();root.position.set(x,0,z);scene.add(root);shadowDisc(root,0,0,.5);const visual=new THREE.Group();root.add(visual);const soldier=placeModel('soldier',1.85,visual);if(soldier)recolorClothes(soldier,0x387b45);else{box(visual,mat(0x387b45),0,.85,0,.7,1.3,.5);ball(visual,mat(0xffc69a),0,1.6,0,.3,.3,.3,true)}box(visual,mat(0xef3344),.4,1.05,0,.16,.22,.4);placeModel('sword',.8,visual,.5,0);squad.push({root,visual,actor:soldier?.userData.actor,mode:'follow',cool:0,phase:squad.length*2,x,z});if(!restore){state.squad=squad.length;spawnParticles(x,z,[0xffda45,0xffffff],25,1.7);floatText(x,z,'＋★','#ffe144');sound('unlock');save()}return true;
+}
+function startConstruction(e){constructExpansion(e,false);const b=builtExpansions.at(-1),frame=new THREE.Group();frame.position.set(e.x,0,e.z);scene.add(frame);for(const x of [-1.6,1.6])for(const z of [-1.6,1.6])box(frame,M.wood,x,1.6,z,.16,3.2,.16);for(const z of [-1.6,1.6])box(frame,M.wood,0,2.8,z,3.4,.16,.16);construction={e,b,frame,progress:0,t:0};b.root.position.y=-3.5;if(b.root.userData.station){b.root.userData.station.constructing=true;b.root.userData.station.root.position.y=-3.5}showToast(e.name+' 施工中…')}
+function updateConstruction(dt){if(!construction)return;const c=construction;let workers=0;for(const s of squad)if(s.mode==='build'&&Math.hypot(s.root.position.x-c.e.x,s.root.position.z-c.e.z)<3.4)workers++;c.progress=Math.min(1,c.progress+dt*(squad.length?(workers?(.65+workers*.35)/3:0):1/2.5));c.b.root.position.y=-3.5*(1-c.progress);if(c.b.root.userData.station)c.b.root.userData.station.root.position.y=c.b.root.position.y;c.t+=dt;if(workers&&c.t>.45){c.t=0;spawnParticles(c.e.x,c.e.z,[0xdbaa72,0xf7d7a0],5,.7);sound('deposit')}if(c.progress<1)return;scene.remove(c.frame);c.frame.traverse(o=>{o.geometry?.dispose()});c.b.age=0;c.b.root.scale.setScalar(.001);if(c.b.root.userData.station)c.b.root.userData.station.constructing=false;state.unlocked.push(c.e.id);if(c.e.id.startsWith('proc'))state.procCount++;c.e.effect();if(c.e.id==='guardpost')createRecruitPad();spawnParticles(c.e.x,c.e.z,[0xffdc43,0xffffff],35,2.6);for(let i=0;i<5;i++)floatText(c.e.x+(i-2)*.5,c.e.z,'★','#ffe347');construction=null;nextZone();sound('unlock');showToast(c.e.name+' 已完成！');updateQuest();save()}
+function updateSquad(dt){recruitClock+=dt;if(recruitPad){const key=squad.length+':'+state.coins+':'+state.meat;if(key!==recruitPad.key){recruitPad.key=key;const old=recruitPad.label,label=createLabelSprite('🛡 招募 '+squad.length+'/8',squad.length>=8?'已滿員':'$'+(30+20*squad.length)+' ＋ 2 肉',0xffffff);label.position.copy(old.position);label.scale.copy(old.scale);recruitPad.root.remove(old);old.material.map.dispose();old.material.dispose();recruitPad.root.add(label);recruitPad.label=label}if(recruitClock>=.5){recruitClock=0;if(Math.abs(hero.root.position.x-1.5)<1.4&&Math.abs(hero.root.position.z-11)<1.2)recruit()}}
+ const e=unlockZone?.e,building=e&&(construction||Math.abs(hero.root.position.x-e.x)<e.w/2&&Math.abs(hero.root.position.z-e.z)<e.d/2);let builders=0;
+ for(let i=0;i<squad.length;i++){const s=squad[i];s.cool=Math.max(0,s.cool-dt);let tx=hero.root.position.x-Math.cos(hero.heading)*(2.4+Math.floor(i/3)*.8)+(i%3-1)*1.1,tz=hero.root.position.z+Math.sin(hero.heading)*(2.4+Math.floor(i/3)*.8)+(i%3-1)*.8;let target=null,best=7;for(const b of bears){if(!b.alive)continue;const d=Math.hypot(b.x-s.root.position.x,b.z-s.root.position.z);if(d<best){target=b;best=d}}s.mode='follow';if(target){s.mode='hunt';tx=target.x;tz=target.z;if(best<1.6){tx=s.root.position.x;tz=s.root.position.z;if(!s.cool){s.cool=.8;playModel(s.actor,'attack-melee-right',true);combatSprite('slash',target.x,1,target.z,1.6);hitBear(target,1);if(!target.alive)target.squadLoot=true}}}else if(building&&builders<3){s.mode='build';const slot=builders++;tx=e.x+(slot-1)*1.7;tz=e.z+(e.bz!=null?-2:2.2);if(construction&&Math.hypot(tx-s.root.position.x,tz-s.root.position.z)<.5&&s.cool===0){s.cool=.6;playModel(s.actor,'attack-melee-right',true)}}
+ let dx=tx-s.root.position.x,dz=tz-s.root.position.z;const distance=Math.hypot(dx,dz);if(distance>.2){for(const other of squad){if(other===s)continue;const ox=s.root.position.x-other.root.position.x,oz=s.root.position.z-other.root.position.z,d2=ox*ox+oz*oz;if(d2>.001&&d2<.64){dx+=ox*.4/d2;dz+=oz*.4/d2}}const len=Math.hypot(dx,dz)||1,step=Math.min(distance,dt*5.9);s.root.position.x+=dx/len*step;s.root.position.z+=dz/len*step;s.root.rotation.y=Math.atan2(dx,dz);playModel(s.actor,'walk')}else if(!s.cool)playModel(s.actor,'idle');s.visual.position.y=distance>.2?Math.abs(Math.sin(now*10+s.phase))*.13:s.mode==='build'&&construction?Math.abs(Math.sin(now*11+s.phase))*.18:0;s.visual.rotation.z=s.cool>0?Math.sin(s.cool*14)*.12:0;s.x=s.root.position.x;s.z=s.root.position.z;
+ }
+}
+
 function inputVector(){
   let x=0,y=0;
   if(inputs.keys.has('a')||inputs.keys.has('arrowleft'))x--;
@@ -963,7 +979,7 @@ function updatePlayer(dt){
   hero.vel.lerp(targetVel,1-Math.exp(-10*dt));
   const px=hero.root.position.x,pz=hero.root.position.z;
   let nx=px+hero.vel.x*dt,nz=pz+hero.vel.z*dt;
-  nx=clamp(nx,-49,state.gateOpen?55:24.6);nz=clamp(nz,-31,28);
+  nx=clamp(nx,-Math.max(49,40+state.procCount*4),state.gateOpen?Math.max(70,55+state.procCount*3):24.6);nz=clamp(nz,state.unlocked.includes('north')?-65:-31,Math.max(70,60+state.procCount*4));
   if(nx>=24.5&&!state.gateOpen&&now>(hero.gateNotify??-10)+2){showToast('前方雪林尚未開放，到白色虛線框付費解鎖');hero.gateNotify=now}
   hero.root.position.set(nx,0,nz);
   const moving=hero.vel.lengthSq()>.07;
@@ -1174,10 +1190,10 @@ function gameLoop(t){
   if(running&&!paused){
     now+=dt;
     updatePlayer(dt);updateBears(dt);autoAttack(dt);updateModelAnimations(dt);updateForest(dt);updateDrops(dt);updateParticles(dt);updateCombatEffects(dt);
-    updateStations(dt);updateGateEffects(dt);updateBackpack(dt);updateSnow(dt);
+    updateStations(dt);updateSquad(dt);updateGateEffects(dt);updateBackpack(dt);updateSnow(dt);
     if(toastTime<now)UI.toast.classList.remove('show');
     saveClock+=dt;if(saveClock>4){saveClock=0;save()}
-    updateCamera(dt);updateFloatLabels();
+    updateCamera(dt);updateZoneArrow();updateFloatLabels();
   }else{
     // 讓初始畫面仍保有 3D 背景；暫停時則完全凍結遊戲邏輯。
     if(!paused){now+=dt*.35;updateSnow(dt*.2)}
@@ -1197,7 +1213,7 @@ const modelFiles={
  rockA:'kenney-holiday-kit/rocks-large',rockB:'kenney-holiday-kit/rocks-medium',rockC:'kenney-holiday-kit/rocks-small',
  snowPile:'kenney-holiday-kit/snow-pile',fence:'kenney-holiday-kit/cabin-fence',bench:'kenney-holiday-kit/bench',
  lantern:'kenney-holiday-kit/lantern',sled:'kenney-holiday-kit/sled',snowman:'kenney-holiday-kit/snowman',
- workbench:'kenney-survival-kit/workbench',box:'kenney-survival-kit/box',boxLarge:'kenney-survival-kit/box-large',barrel:'kenney-survival-kit/barrel',chest:'kenney-survival-kit/chest',wood:'kenney-survival-kit/resource-wood',log:'kenney-survival-kit/tree-log',signpost:'kenney-survival-kit/signpost',campfire:'kenney-survival-kit/campfire-pit',
+ fortified:'kenney-survival-kit/fence-fortified',anvil:'kenney-survival-kit/workbench-anvil',tent:'kenney-survival-kit/tent-canvas',workbench:'kenney-survival-kit/workbench',box:'kenney-survival-kit/box',boxLarge:'kenney-survival-kit/box-large',barrel:'kenney-survival-kit/barrel',chest:'kenney-survival-kit/chest',wood:'kenney-survival-kit/resource-wood',log:'kenney-survival-kit/tree-log',signpost:'kenney-survival-kit/signpost',campfire:'kenney-survival-kit/campfire-pit',
  npcA:'kenney-mini-characters/character-male-a',npcB:'kenney-mini-characters/character-male-c',npcC:'kenney-mini-characters/character-female-b',npcD:'kenney-mini-characters/character-female-d'
 };
 async function preloadModels(){
@@ -1272,7 +1288,8 @@ function dressWorld(){
   }
  }
  for(const c of customerMeshes){const npc=model(['npcA','npcB','npcC','npcD'][customerMeshes.indexOf(c)%4],1.65);if(!npc)continue;recolorClothes(npc,0x3fb4d8);hideGeometry(c.root,[c.root.children[0]]);c.root.add(npc);npc.rotation.y=Math.PI/2}
- for(const st of stalls){if(!modelCache.has('workbench'))continue;hideGeometry(st.root,[st.root.children[0],st.cargo,st.pad,st.sprite]);placeModel('workbench',1.35,st.root);placeModel('box',.65,st.root,-1.5,.35);placeModel('barrel',.85,st.root,1.5,.4);placeModel('bench',.65,st.root,0,1.0);placeModel('wood',.45,st.root,-1.5,-.4);st.root.scale.setScalar(1.18);drawDashedRect(st.root,0,.12,1.45,2.7,1.1,0xffffff)}
+ for(const st of stalls){
+    if(st.constructing)continue;if(!modelCache.has('workbench'))continue;hideGeometry(st.root,[st.root.children[0],st.cargo,st.pad,st.sprite]);placeModel('workbench',1.35,st.root);placeModel('box',.65,st.root,-1.5,.35);placeModel('barrel',.85,st.root,1.5,.4);placeModel('bench',.65,st.root,0,1.0);placeModel('wood',.45,st.root,-1.5,-.4);st.root.scale.setScalar(1.18);drawDashedRect(st.root,0,.12,1.45,2.7,1.1,0xffffff)}
  if(modelCache.has('fence')){
   // Replace the procedural south rail, keeping the road, dashed pads and station openings.
   roadDecor.children.forEach(o=>{if(o.isMesh&&o.position.z===3.62)o.visible=false});
@@ -1336,8 +1353,8 @@ window.__debug={state(){return {player:{x:hero.root.position.x,z:hero.root.posit
 async function boot(){
   try{
     await preloadModels();
-    makeWorld();dressWorld();batchStaticWorld();bindControls();updateQuest();updateHUD();syncGate();
-    hero.gateNotify=-10;
+    makeWorld();dressWorld();batchStaticWorld();initExpansions();bindControls();updateQuest();updateHUD();syncGate();
+    hero.gateNotify=-10;if(params.get('debug')==='1')window.__po={state,hero,setHeroPos(x,z){hero.root.position.set(x,0,z)},expansions:EXPANSIONS,get squad(){return squad.map(s=>({x:s.root.position.x,z:s.root.position.z,mode:s.mode}))},recruit:()=>recruit(true),bears,stalls,drops,get nextZone(){const e=unlockZone?.e;return e?{id:e.id,x:e.x,z:e.z,cost:e.cost}:null}};
     if(new URLSearchParams(location.search).get('autostart')==='1')UI.startBtn.click();
     requestAnimationFrame(gameLoop);
   }catch(err){
