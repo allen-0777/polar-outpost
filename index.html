@@ -858,7 +858,7 @@ function updateFloatLabels(){
   }
 }
 function capacity(){return 15+state.upgrades.capacity*5}
-function moveSpeed(){return 4.9*(1+state.upgrades.speed*.15)}
+function moveSpeed(){return 6.6*(1+state.upgrades.speed*.15)}
 function attackPower(){return 1+state.upgrades.power}
 function upgradeCost(k){return upgrades[k].base+upgrades[k].step*state.upgrades[k]}
 function addCoins(num){state.coins+=num;state.totalEarned+=num;updateHUD();updateQuest();}
@@ -1161,7 +1161,7 @@ function sound(type){
 }
 function resize(){
   const w=Math.max(1,innerWidth),h=Math.max(1,innerHeight),aspect=w/h;
-  targetFrustum=aspect<.7?40.5:aspect>1.4?42:41;
+  targetFrustum=aspect<.7?29:aspect>1.4?30:29.5;
   camera.left=-targetFrustum*aspect/2;camera.right=targetFrustum*aspect/2;
   camera.top=targetFrustum/2;camera.bottom=-targetFrustum/2;
   camera.updateProjectionMatrix();renderer.setSize(w,h,false);
